@@ -29,10 +29,8 @@ def update_patient_logic(id, patients, db):
         raise HTTPException(status_code=404, detail="No patient with this id")
 
     updated_fields = patients.model_dump(exclude_unset=True)
-    print(updated_fields)
 
     for x , y in updated_fields.items():
-        print(x,y)
         setattr(p, x, y)
 
     db.commit()
