@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.tables import User, Roles
 from app.schema.users import users, usersUpdate
+from app.auth.hash import hash
 
 
 def create_user_logic(user: users, db: Session):
@@ -9,13 +10,16 @@ def create_user_logic(user: users, db: Session):
     if u:
         raise HTTPException(status_code=409, detail="User with this email already exists")
 
-    role_val = user.role.value if hasattr(user.role, "value") else user.role
-    role = db.query(Roles).filter(Roles.role == role_val).first()
+
+    role = db.query(Roles).filter(Roles.role == user.role).first()
     if not role:
         raise HTTPException(status_code=404, detail="Invalid Role")
 
+    user.password = hash(user.password)
+
     data = user.model_dump(exclude={"role"})
     data["role_id"] = role.id
+
     new_user = User(**data)
 
     db.add(new_user)
