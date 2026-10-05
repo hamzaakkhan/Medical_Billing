@@ -29,7 +29,6 @@ def get_current_user(token:str = Depends(oauth)):
         user_id = payload.get("user_id")
         if not user_id:
             raise credential_exception
-        print(user_id)
         return TokenData(id=user_id)
     except InvalidTokenError:
         raise credential_exception

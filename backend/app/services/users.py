@@ -3,9 +3,14 @@ from sqlalchemy.orm import Session
 from app.models.tables import User, Roles
 from app.schema.users import users, usersUpdate
 from app.auth.hash import hash
+from app.schema.users import role_name
 
 
-def create_user_logic(user: users, db: Session):
+def create_user_logic(user: users, db: Session, user_id):
+    u = db.query(User).filter(User.id == user_id.id).first()
+    r = db.query(Roles).filter(Roles.id == u.role_id).first()
+    if r.role != role_name.ADMIN:
+        raise HTTPException(status_code=403, detail="This feature is only accessible to admin")
     u = db.query(User).filter(User.email == user.email).first()
     if u:
         raise HTTPException(status_code=409, detail="User with this email already exists")
@@ -28,18 +33,30 @@ def create_user_logic(user: users, db: Session):
     return "User successfully added"
 
 
-def get_users_logic(db: Session):
+def get_users_logic(db: Session, user_id):
+    u = db.query(User).filter(User.id == user_id.id).first()
+    r = db.query(Roles).filter(Roles.id == u.role_id).first()
+    if r.role != role_name.ADMIN:
+        raise HTTPException(status_code=403, detail="This feature is only accessible to admin")
     return db.query(User).all()
 
 
-def get_user_logic(id: int, db: Session):
+def get_user_logic(id: int, db: Session, user_id):
+    u = db.query(User).filter(User.id == user_id.id).first()
+    r = db.query(Roles).filter(Roles.id == u.role_id).first()
+    if r.role != role_name.ADMIN:
+        raise HTTPException(status_code=403, detail="This feature is only accessible to admin")
     u = db.query(User).filter(User.id == id).first()
     if not u:
         raise HTTPException(status_code=404, detail="No user with this id exists")
     return u
 
 
-def update_user_logic(id: int, user: usersUpdate, db: Session):
+def update_user_logic(id: int, user: usersUpdate, db: Session, user_id):
+    u = db.query(User).filter(User.id == user_id.id).first()
+    r = db.query(Roles).filter(Roles.id == u.role_id).first()
+    if r.role != role_name.ADMIN:
+        raise HTTPException(status_code=403, detail="This feature is only accessible to admin")
     u = db.query(User).filter(User.id == id).first()
     if not u:
         raise HTTPException(status_code=404, detail="No user with this id exists")
@@ -69,7 +86,11 @@ def update_user_logic(id: int, user: usersUpdate, db: Session):
     return "User updated successfully"
 
 
-def delete_user_logic(id: int, db: Session):
+def delete_user_logic(id: int, db: Session, user_id):
+    u = db.query(User).filter(User.id == user_id.id).first()
+    r = db.query(Roles).filter(Roles.id == u.role_id).first()
+    if r.role != role_name.ADMIN:
+        raise HTTPException(status_code=403, detail="This feature is only accessible to admin")
     u = db.query(User).filter(User.id == id).first()
     if not u:
         raise HTTPException(status_code=404, detail="No user with this id exists")
