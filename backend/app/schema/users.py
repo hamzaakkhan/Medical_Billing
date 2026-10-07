@@ -29,6 +29,8 @@ class usersUpdate(BaseModel):
     role: role_name | None = None
     is_active: bool | None = None
 
+    model_config = {"extra": "forbid"}
+
 
 class userResponse(BaseModel):
     id: int
@@ -38,5 +40,7 @@ class userResponse(BaseModel):
     email: EmailStr
     role_id: int
     is_active: bool
+    is_root_admin: bool = False
 
     model_config = {"from_attributes": True}
+
