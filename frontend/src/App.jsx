@@ -1,246 +1,124 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
-import Dashboard from './components/Dashboard';
-import PatientManagement from './components/PatientManagement';
-import PatientModal from './components/PatientModal';
-import PatientViewModal from './components/PatientViewModal';
-import DeleteConfirmModal from './components/DeleteConfirmModal';
-import Toast from './components/Toast';
-import {
-  getAllPatients,
-  createPatient,
-  updatePatient,
-  deletePatient,
-} from './api/patientApi';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import Layout from './layouts/Layout';
+import Login from './pages/Login';
+import DashboardPage from './pages/DashboardPage';
+import PatientsPage from './pages/PatientsPage';
+import PlaceholderPage from './pages/PlaceholderPage';
+
+// Users management page (admin only)
+function UsersPage() {
+  return <PlaceholderPage
+    title="User Management"
+    description="Add, edit, deactivate, or delete system users. Assign roles: Admin, Receptionist, Doctor, Medical Coder, Biller."
+    icon="Users"
+  />;
+}
+
+// Protected Route — requires login, optionally requires a specific set of roles
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { user, token } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
 
 export default function App() {
-  // Navigation & View state
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'patients'
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Data state
-  const [patients, setPatients] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [isBackendHealthy, setIsBackendHealthy] = useState(false);
-
-  // Modal states
-  const [isAddEditOpen, setIsAddEditOpen] = useState(false);
-  const [patientToEdit, setPatientToEdit] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [isViewOpen, setIsViewOpen] = useState(false);
-  const [viewPatient, setViewPatient] = useState(null);
-
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [deleteTargetPatient, setDeleteTargetPatient] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Toast feedback notification
-  const [toast, setToast] = useState(null);
-
-  const showToast = (type, title, message) => {
-    setToast({ type, title, message });
-  };
-
-  // Fetch all patients from FastAPI backend
-  const fetchPatients = useCallback(async (isSilent = false) => {
-    if (!isSilent) setIsLoading(true);
-    setIsRefreshing(true);
-    setError(null);
-
-    try {
-      const data = await getAllPatients();
-      const patientList = Array.isArray(data) ? data : [];
-      setPatients(patientList);
-      setIsBackendHealthy(true);
-      setError(null);
-    } catch (err) {
-      setError(err.message || 'Failed to connect to FastAPI backend');
-      setIsBackendHealthy(false);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    fetchPatients();
-  }, [fetchPatients]);
-
-  // Open Add Patient Modal
-  const handleOpenAddModal = () => {
-    setPatientToEdit(null);
-    setIsAddEditOpen(true);
-  };
-
-  // Open Edit Patient Modal
-  const handleOpenEditModal = (patient) => {
-    setPatientToEdit(patient);
-    setIsAddEditOpen(true);
-  };
-
-  // Open View Patient Modal
-  const handleOpenViewModal = (patient) => {
-    setViewPatient(patient);
-    setIsViewOpen(true);
-  };
-
-  // Open Delete Confirmation Modal
-  const handleOpenDeleteModal = (patient) => {
-    setDeleteTargetPatient(patient);
-    setIsDeleteOpen(true);
-  };
-
-  // Submit Add or Edit Patient
-  const handleSavePatient = async (formData, editId) => {
-    setIsSubmitting(true);
-    try {
-      if (editId) {
-        // Update existing patient (PUT /patients/{id})
-        const res = await updatePatient(editId, formData);
-        const successMsg = typeof res === 'string' ? res : 'Patient updated successfully';
-        showToast('success', 'Patient Updated', successMsg);
-      } else {
-        // Create new patient (POST /patients/)
-        const res = await createPatient(formData);
-        const successMsg = typeof res === 'string' ? res : 'Patient added successfully';
-        showToast('success', 'Patient Registered', successMsg);
-      }
-
-      setIsAddEditOpen(false);
-      setPatientToEdit(null);
-      await fetchPatients(true);
-    } catch (err) {
-      showToast('error', 'Operation Failed', err.message || 'Could not save patient record');
-      throw err;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Execute Delete
-  const handleConfirmDelete = async (patientId) => {
-    setIsDeleting(true);
-    try {
-      await deletePatient(patientId);
-      showToast('success', 'Patient Deleted', `Patient record #${patientId} was permanently removed`);
-      setIsDeleteOpen(false);
-      setDeleteTargetPatient(null);
-      // If the deleted patient was being viewed, close the view modal
-      if (viewPatient && viewPatient.id === patientId) {
-        setIsViewOpen(false);
-        setViewPatient(null);
-      }
-      await fetchPatients(true);
-    } catch (err) {
-      showToast('error', 'Delete Failed', err.message || 'Could not delete patient record');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* Navigation Sidebar */}
-      <Sidebar
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        isBackendHealthy={isBackendHealthy}
-        patientCount={patients.length}
-      />
+    <AuthProvider>
+      <BrowserRouter>
+        <SocketProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <Navbar
-          activeTab={activeTab}
-          onOpenAddModal={handleOpenAddModal}
-          onRefresh={() => fetchPatients(false)}
-          isRefreshing={isRefreshing}
-          patientCount={patients.length}
-        />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+            {/* Universal */}
+            <Route index element={<DashboardPage />} />
+            <Route path="settings" element={
+              <PlaceholderPage title="Settings" description="Manage clinic profile, notifications, integrations, and system preferences." icon="Settings" />
+            } />
 
-        <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto">
-          {activeTab === 'dashboard' && (
-            <Dashboard
-              patients={patients}
-              isLoading={isLoading}
-              onOpenAddModal={handleOpenAddModal}
-              onNavigateToPatients={() => setActiveTab('patients')}
-              onViewPatient={handleOpenViewModal}
-              onSearchFocus={() => {
-                setActiveTab('patients');
-              }}
-            />
-          )}
+            {/* Patients — receptionist has full CRUD; admin/doctor/coder are view-only (enforced in PatientsPage) */}
+            <Route path="patients" element={
+              <ProtectedRoute allowedRoles={['admin', 'receptionist', 'doctor', 'coder']}>
+                <PatientsPage />
+              </ProtectedRoute>
+            } />
 
-          {activeTab === 'patients' && (
-            <PatientManagement
-              patients={patients}
-              isLoading={isLoading}
-              error={error}
-              onRefresh={() => fetchPatients(false)}
-              onOpenAddModal={handleOpenAddModal}
-              onViewPatient={handleOpenViewModal}
-              onEditPatient={handleOpenEditModal}
-              onDeletePatient={handleOpenDeleteModal}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-            />
-          )}
-        </main>
-      </div>
+            {/* Admin-only */}
+            <Route path="users" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <UsersPage />
+              </ProtectedRoute>
+            } />
+            <Route path="invoices" element={
+              <ProtectedRoute allowedRoles={['admin', 'biller']}>
+                <PlaceholderPage title="Invoices" description="View and manage all patient invoices, outstanding balances, and payment history." icon="FileText" />
+              </ProtectedRoute>
+            } />
+            <Route path="payers" element={
+              <ProtectedRoute allowedRoles={['admin', 'biller']}>
+                <PlaceholderPage title="Payers" description="Manage insurance payers, contract rates, and ERA/EOB reconciliation." icon="Building2" />
+              </ProtectedRoute>
+            } />
+            <Route path="reports" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <PlaceholderPage title="Reports & Analytics" description="Revenue cycle reports, denial analysis, aging AR reports, and financial summaries." icon="BarChart3" />
+              </ProtectedRoute>
+            } />
 
-      {/* Patient Add / Edit Modal */}
-      <PatientModal
-        isOpen={isAddEditOpen}
-        onClose={() => {
-          if (!isSubmitting) {
-            setIsAddEditOpen(false);
-            setPatientToEdit(null);
-          }
-        }}
-        onSave={handleSavePatient}
-        patientToEdit={patientToEdit}
-        isSubmitting={isSubmitting}
-      />
+            {/* Receptionist */}
+            <Route path="schedule" element={
+              <ProtectedRoute allowedRoles={['admin', 'receptionist', 'doctor']}>
+                <PlaceholderPage title="Schedule & Appointments" description="Manage daily appointment slots, patient check-ins, and scheduling workflows." icon="CalendarCheck" />
+              </ProtectedRoute>
+            } />
+            <Route path="insurers" element={
+              <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
+                <PlaceholderPage title="Insurance Verification" description="Verify patient insurance eligibility, coverage details, and insurer contracts." icon="ShieldCheck" />
+              </ProtectedRoute>
+            } />
 
-      {/* Patient Full Dossier / Chart Modal */}
-      <PatientViewModal
-        isOpen={isViewOpen}
-        onClose={() => {
-          setIsViewOpen(false);
-          setViewPatient(null);
-        }}
-        patient={viewPatient}
-        onEdit={(patient) => {
-          setIsViewOpen(false);
-          handleOpenEditModal(patient);
-        }}
-      />
+            {/* Doctor */}
+            <Route path="clinical" element={
+              <ProtectedRoute allowedRoles={['admin', 'doctor']}>
+                <PlaceholderPage title="Clinical Notes & Encounters" description="Document patient visits, SOAP notes, diagnoses, and treatment plans." icon="ClipboardList" />
+              </ProtectedRoute>
+            } />
 
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={isDeleteOpen}
-        onClose={() => {
-          if (!isDeleting) {
-            setIsDeleteOpen(false);
-            setDeleteTargetPatient(null);
-          }
-        }}
-        onConfirm={handleConfirmDelete}
-        patient={deleteTargetPatient}
-        isDeleting={isDeleting}
-      />
+            {/* Coder */}
+            <Route path="coding" element={
+              <ProtectedRoute allowedRoles={['admin', 'coder']}>
+                <PlaceholderPage title="Medical Coding Workbench" description="Assign ICD-10 and CPT codes to encounters. Review coding accuracy and compliance." icon="Code2" />
+              </ProtectedRoute>
+            } />
 
-      {/* Toast Notification Container */}
-      <Toast toast={toast} onClose={() => setToast(null)} />
-    </div>
+            {/* Biller */}
+            <Route path="claims" element={
+              <ProtectedRoute allowedRoles={['admin', 'biller']}>
+                <PlaceholderPage title="Claims Management" description="Submit, track, and manage insurance claims through their full lifecycle." icon="ClipboardCheck" />
+              </ProtectedRoute>
+            } />
+            <Route path="denials" element={
+              <ProtectedRoute allowedRoles={['admin', 'biller']}>
+                <PlaceholderPage title="Denial Management" description="Review denied claims, appeal submissions, and track resolution status." icon="XCircle" />
+              </ProtectedRoute>
+            } />
+
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+        </SocketProvider>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

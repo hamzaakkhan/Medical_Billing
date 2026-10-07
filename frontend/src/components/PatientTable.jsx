@@ -23,6 +23,7 @@ export default function PatientTable({
   onOpenAddModal,
   searchQuery,
   onSearchChange,
+  viewOnly = false,
 }) {
   const [cityFilter, setCityFilter] = useState('ALL');
   const [sortField, setSortField] = useState('id');
@@ -332,7 +333,7 @@ export default function PatientTable({
                             e.stopPropagation();
                             onEdit(patient);
                           }}
-                          className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                          className={`p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition ${viewOnly || !onEdit ? 'hidden' : ''}`}
                           title="Edit Patient"
                           aria-label="Edit Patient"
                         >
@@ -343,7 +344,7 @@ export default function PatientTable({
                             e.stopPropagation();
                             onDelete(patient);
                           }}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          className={`p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition ${viewOnly || !onDelete ? 'hidden' : ''}`}
                           title="Delete Patient"
                           aria-label="Delete Patient"
                         >

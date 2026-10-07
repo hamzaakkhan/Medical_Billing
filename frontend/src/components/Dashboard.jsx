@@ -15,6 +15,7 @@ import {
 import { StatCardSkeleton } from './LoadingSkeleton';
 
 export default function Dashboard({
+  user,
   patients,
   isLoading,
   onOpenAddModal,
@@ -76,6 +77,29 @@ export default function Dashboard({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Revenue Card (Admin/Biller only) */}
+          {(user?.role === 'admin' || user?.role === 'biller') && (
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Total Revenue
+                </span>
+                <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center">
+                  <span className="font-bold text-lg">$</span>
+                </div>
+              </div>
+              <div className="mt-3">
+                <span className="text-3xl font-extrabold text-slate-900">
+                  $12,450
+                </span>
+                <span className="text-xs text-slate-400 ml-2 font-medium">MTD estimate</span>
+              </div>
+              <p className="mt-2 text-xs text-emerald-600 font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Module in development
+              </p>
+            </div>
+          )}
+
           {/* Card 1: Total Patients */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition">
             <div className="flex items-center justify-between">

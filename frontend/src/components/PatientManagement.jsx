@@ -1,54 +1,65 @@
 import React from 'react';
-import { UserPlus, Users, Search, RefreshCw } from 'lucide-react';
+import { UserPlus, Users, RefreshCw, Eye } from 'lucide-react';
 import PatientTable from './PatientTable';
 import { TableSkeleton } from './LoadingSkeleton';
 import ErrorAlert from './ErrorAlert';
 
 export default function PatientManagement({
-  patients,
-  isLoading,
-  error,
-  onRefresh,
-  onOpenAddModal,
-  onViewPatient,
-  onEditPatient,
-  onDeletePatient,
-  searchQuery,
-  onSearchChange,
+  patients, isLoading, error, onRefresh,
+  canCreate, canEdit, canDelete,
+  onOpenAddModal, onViewPatient, onEditPatient, onDeletePatient,
+  searchQuery, onSearchChange, role,
 }) {
+  const isViewOnly = !canCreate && !canEdit && !canDelete;
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page Header */}
+    <div className="space-y-5 animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Users className="w-6 h-6 text-sky-600" />
-            <span>Patient Management & Directory</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Search, inspect, update, and manage all active patient electronic health records (EHR).
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-600" />
+            Patient Directory
+            {isViewOnly && (
+              <span className="ml-2 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md uppercase tracking-wide border border-amber-200">
+                View Only
+              </span>
+            )}
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {isViewOnly
+              ? `You have read-only access to patient records (${role} role).`
+              : 'Register, search, edit, and manage patient records.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={onOpenAddModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-xl text-sm font-semibold transition shadow-sm shadow-sky-600/20"
+            onClick={onRefresh}
+            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+            title="Refresh"
           >
-            <UserPlus className="w-4 h-4" />
-            <span>Add New Patient</span>
+            <RefreshCw className="w-4 h-4" />
           </button>
+
+          {canCreate && onOpenAddModal && (
+            <button
+              onClick={onOpenAddModal}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
+            >
+              <UserPlus className="w-4 h-4" />
+              Register Patient
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Error Alert */}
       {error && <ErrorAlert message={error} onRetry={onRefresh} />}
 
-      {/* Table Container */}
       {isLoading ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-slate-200/80 bg-slate-50/50">
-            <div className="h-9 bg-slate-200 rounded-xl w-72 animate-pulse" />
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="h-9 bg-gray-200 rounded-lg w-72 animate-pulse" />
           </div>
           <TableSkeleton rows={6} />
         </div>
@@ -56,11 +67,12 @@ export default function PatientManagement({
         <PatientTable
           patients={patients}
           onView={onViewPatient}
-          onEdit={onEditPatient}
-          onDelete={onDeletePatient}
-          onOpenAddModal={onOpenAddModal}
+          onEdit={canEdit ? onEditPatient : null}
+          onDelete={canDelete ? onDeletePatient : null}
+          onOpenAddModal={canCreate ? onOpenAddModal : null}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
+          viewOnly={isViewOnly}
         />
       )}
     </div>
