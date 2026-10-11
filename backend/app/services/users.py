@@ -2,9 +2,15 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth.hash import hash
-from app.models.tables import Roles, User
-from app.schema.users import role_name, users, usersUpdate
+from app.auth.hash import hash, hash_password, verify_password
+from app.models.users import Roles, User
+from app.schema.users import (
+    passwordChangeRequest,
+    role_name,
+    userProfileUpdate,
+    users,
+    usersUpdate,
+)
 
 
 def _get_admin_user_and_role(db: Session, user_id):
@@ -127,6 +133,7 @@ def update_user_logic(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please enter the data",
         )
+    
 
     # Disallow tampering with is_root_admin flag
     us.pop("is_root_admin", None)
@@ -173,9 +180,17 @@ def update_user_logic(
                 )
         us["email"] = clean_email
 
-    # Hash password if provided
-    if "password" in us and us["password"]:
-        us["password"] = hash(us["password"])
+    # Only the currently authenticated user can change their own password
+    if "password" in us:
+        if target_user.id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the currently authenticated user can change their own password",
+            )
+        if us["password"]:
+            us["password"] = hash(us["password"])
+        else:
+            us.pop("password")
 
     # Role update & escalation check
     if "role" in us:
@@ -272,3 +287,132 @@ def delete_user_logic(id: int, db: Session, user_id):
         )
 
     return "User deleted successfully"
+
+
+
+def get_current_user_profile_logic(db: Session, user_id):
+    current_user = db.query(User).filter(User.id == user_id.id).first()
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    current_role = (
+        db.query(Roles).filter(Roles.id == current_user.role_id).first()
+    )
+    role_str = current_role.role if current_role else "unknown"
+
+    return {
+        "id": current_user.id,
+        "first_name": current_user.first_name,
+        "middle_name": current_user.middle_name,
+        "last_name": current_user.last_name,
+        "email": current_user.email,
+        "role_id": current_user.role_id,
+        "role": role_str,
+        "is_active": current_user.is_active,
+        "is_root_admin": current_user.is_root_admin,
+        "created_at": current_user.created_at,
+    }
+
+
+def update_current_user_profile_logic(
+    profile_data: userProfileUpdate, db: Session, user_id
+):
+    current_user = db.query(User).filter(User.id == user_id.id).first()
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    clean_email = profile_data.email.strip().lower()
+    if clean_email != current_user.email:
+        existing = (
+            db.query(User)
+            .filter(User.email == clean_email, User.id != current_user.id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User with this email already exists",
+            )
+        current_user.email = clean_email
+
+    current_user.first_name = profile_data.first_name.strip()
+    current_user.middle_name = (
+        profile_data.middle_name.strip()
+        if profile_data.middle_name and profile_data.middle_name.strip()
+        else None
+    )
+    current_user.last_name = profile_data.last_name.strip()
+
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists",
+        )
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile",
+        )
+
+    current_role = (
+        db.query(Roles).filter(Roles.id == current_user.role_id).first()
+    )
+    role_str = current_role.role if current_role else "unknown"
+
+    return {
+        "id": current_user.id,
+        "first_name": current_user.first_name,
+        "middle_name": current_user.middle_name,
+        "last_name": current_user.last_name,
+        "email": current_user.email,
+        "role_id": current_user.role_id,
+        "role": role_str,
+        "is_active": current_user.is_active,
+        "is_root_admin": current_user.is_root_admin,
+        "created_at": current_user.created_at,
+    }
+
+
+def change_password_logic(data: passwordChangeRequest, db: Session, user_id):
+    current_user = db.query(User).filter(User.id == user_id.id).first()
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if not verify_password(data.current_password, current_user.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    if data.current_password == data.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from current password",
+        )
+
+    current_user.password = hash_password(data.new_password)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update password",
+        )
+
+    return {"message": "Password updated successfully"}

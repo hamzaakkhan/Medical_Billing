@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.models.tables import Patients
+from app.models.patients import Patients
 from app.schema.patients import patientUpdate, patients
 from app.services.patients import (
     add_patient_logic,

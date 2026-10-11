@@ -21,6 +21,7 @@ cors_origins = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins if cors_origins else ["*"],
+    allow_origin_regex=r"http://.*:5173",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,4 +37,6 @@ def health_check():
     return {"status": "ok"}
 
 # uv run uvicorn app.main:app --reload
+# uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload {HOST FOR PHONE}
 # agy --dangerously-skip-permissions
+# cd socket-server    node server.js

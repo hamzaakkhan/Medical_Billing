@@ -4,7 +4,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.auth.hash import hash_password
-from app.models.tables import Base, Roles, User
+from app.database.database import Base
+from app.models.users import Roles, User
 
 
 @pytest.fixture(scope="function")

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.hash import DUMMY_HASH, verify_hash
 from app.auth.jwt_auth import create_access_token
-from app.models.tables import User
+from app.models.users import User
 
 
 def login_user_logic(user: OAuth2PasswordRequestForm, db: Session):

@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.tables import Patients
+from app.models.patients import Patients
 
 
 def all_patients_logic(db: Session):
