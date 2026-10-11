@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import setting
+from app.routes.appointments import router as appointments_router
 from app.routes.login import router as login
 from app.routes.patients import router as patients_router
 from app.routes.users import router as users_router
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(patients_router)
 app.include_router(users_router)
+app.include_router(appointments_router)
 app.include_router(login)
 
 

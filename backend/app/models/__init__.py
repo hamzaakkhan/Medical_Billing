@@ -1,5 +1,5 @@
 """Models package."""
-from app.models.appointmets import appointments
+from app.models.appointments import appointments
 from app.models.patients import Patients
 from app.models.users import Roles, User
 
