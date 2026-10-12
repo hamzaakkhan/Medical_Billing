@@ -142,11 +142,11 @@ def add_appointment_logic(appointment_data: appointmentCreate, db: Session, user
 
     user, role = _get_user_and_role(db, user_id)
 
-    allowed = {role_name.ADMIN.value, role_name.RECEPTIONIST.value, role_name.DOCTOR.value}
+    allowed = {role_name.RECEPTIONIST.value, role_name.DOCTOR.value}
     if role not in allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only receptionists, doctors, and administrators can schedule appointments",
+            detail="Only doctors and receptionists can schedule appointments",
         )
 
     if role == role_name.DOCTOR.value and appointment_data.doctor_id != user.id:
@@ -216,7 +216,7 @@ def update_appointment_logic(id: int, appointment_data: appointmentUpdate, db: S
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Doctors cannot reassign appointment patient",
                 )
-        elif role not in {role_name.ADMIN.value, role_name.RECEPTIONIST.value}:
+        elif role not in {role_name.RECEPTIONIST.value}:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to modify appointments",
@@ -270,7 +270,7 @@ def update_appointment_logic(id: int, appointment_data: appointmentUpdate, db: S
 
 
 def delete_appointment_logic(id: int, db: Session, user_id=None):
-    """Delete an appointment record (admins and receptionists only)."""
+    """Delete an appointment record (receptionists only)."""
     appt = db.query(appointments).filter(appointments.id == id).first()
     if not appt:
         raise HTTPException(
@@ -280,10 +280,10 @@ def delete_appointment_logic(id: int, db: Session, user_id=None):
 
     if user_id is not None:
         user, role = _get_user_and_role(db, user_id)
-        if role not in {role_name.ADMIN.value, role_name.RECEPTIONIST.value}:
+        if role not in {role_name.RECEPTIONIST.value}:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators and receptionists can delete appointment records. Doctors may cancel appointments by updating status to 'cancelled'.",
+                detail="Only receptionists can delete appointment records. Doctors may cancel appointments by updating status to 'cancelled'.",
             )
 
     try:

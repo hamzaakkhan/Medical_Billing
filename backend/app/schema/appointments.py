@@ -46,7 +46,6 @@ def _validate_duration(start_at: datetime | None, ends_at: datetime | None):
 class appointmentCreate(BaseModel):
     patient_id: int = Field(..., gt=0, description="ID of the patient")
     doctor_id: int = Field(..., gt=0, description="ID of the doctor (user)")
-    scheduled_by: int | None = Field(default=None, gt=0, description="ID of staff who scheduled")
     start_at: datetime = Field(..., description="Start timestamp of the appointment")
     ends_at: datetime = Field(..., description="End timestamp of the appointment")
     reason: str = Field(..., min_length=1, max_length=255, description="Reason for visit")
@@ -75,7 +74,6 @@ appointments = appointmentCreate
 class appointmentUpdate(BaseModel):
     patient_id: int | None = Field(default=None, gt=0)
     doctor_id: int | None = Field(default=None, gt=0)
-    scheduled_by: int | None = Field(default=None, gt=0)
     start_at: datetime | None = None
     ends_at: datetime | None = None
     reason: str | None = Field(default=None, min_length=1, max_length=255)

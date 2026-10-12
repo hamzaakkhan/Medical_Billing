@@ -540,7 +540,7 @@ def test_role_enforcement_and_unauthorized_scheduling(db_session, sample_patient
             coder.id,
         )
     assert exc.value.status_code == 403
-    assert "Only receptionists, doctors, and administrators" in exc.value.detail
+    assert "Only doctors and receptionists" in exc.value.detail
 
     # 2. Cannot assign coder as appointment doctor (400)
     with pytest.raises(HTTPException) as exc2:
@@ -557,3 +557,63 @@ def test_role_enforcement_and_unauthorized_scheduling(db_session, sample_patient
         )
     assert exc2.value.status_code == 403 or exc2.value.status_code == 400
     assert "doctor" in exc2.value.detail.lower()
+
+
+def test_admin_appointment_view_only(db_session, sample_patient, sample_doctor, sample_receptionist, regular_admin):
+    now = datetime.now(timezone.utc)
+    # 1. Receptionist creates an appointment
+    appt = add_appointment_logic(
+        appointmentCreate(
+            patient_id=sample_patient.id,
+            doctor_id=sample_doctor.id,
+            start_at=now + timedelta(days=1),
+            ends_at=now + timedelta(days=1, minutes=30),
+            reason="Cardiology review",
+        ),
+        db_session,
+        sample_receptionist.id,
+    )
+    assert appt.id is not None
+
+    # 2. Admin CAN VIEW all appointments
+    admin_list = all_appointments_logic(db_session, regular_admin.id)
+    assert len(admin_list) >= 1
+    assert any(a.id == appt.id for a in admin_list)
+
+    # 3. Admin CAN VIEW specific appointment
+    fetched = get_appointment_logic(appt.id, db_session, regular_admin.id)
+    assert fetched.id == appt.id
+
+    # 4. Admin CANNOT CREATE appointment (403)
+    with pytest.raises(HTTPException) as exc_create:
+        add_appointment_logic(
+            appointmentCreate(
+                patient_id=sample_patient.id,
+                doctor_id=sample_doctor.id,
+                start_at=now + timedelta(days=2),
+                ends_at=now + timedelta(days=2, minutes=30),
+                reason="Admin attempting to create",
+            ),
+            db_session,
+            regular_admin.id,
+        )
+    assert exc_create.value.status_code == 403
+    assert "Only doctors and receptionists can schedule appointments" in exc_create.value.detail
+
+    # 5. Admin CANNOT UPDATE appointment (403)
+    with pytest.raises(HTTPException) as exc_update:
+        update_appointment_logic(
+            appt.id,
+            appointmentUpdate(notes="Admin edit attempt"),
+            db_session,
+            regular_admin.id,
+        )
+    assert exc_update.value.status_code == 403
+    assert "You do not have permission to modify appointments" in exc_update.value.detail
+
+    # 6. Admin CANNOT DELETE appointment (403)
+    with pytest.raises(HTTPException) as exc_delete:
+        delete_appointment_logic(appt.id, db_session, regular_admin.id)
+    assert exc_delete.value.status_code == 403
+    assert "Only receptionists can delete appointment records" in exc_delete.value.detail
+
