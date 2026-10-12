@@ -6,17 +6,17 @@ export default function EmptyState({ type = 'none', onAction, actionLabel }) {
 
   return (
     <div className="py-16 px-6 text-center max-w-sm mx-auto">
-      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 shadow-inner">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-inner">
         {isSearch ? (
-          <SearchX className="w-8 h-8 text-sky-500" />
+          <SearchX className="w-8 h-8 text-sky-500 dark:text-sky-400" />
         ) : (
-          <UserX className="w-8 h-8 text-sky-500" />
+          <UserX className="w-8 h-8 text-sky-500 dark:text-sky-400" />
         )}
       </div>
-      <h3 className="text-base font-semibold text-slate-800">
+      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
         {isSearch ? 'No matching patients found' : 'No patients registered yet'}
       </h3>
-      <p className="mt-1.5 text-sm text-slate-500">
+      <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
         {isSearch
           ? 'Try adjusting your search criteria or clearing filters to find records.'
           : 'Get started by creating a new patient record in the clinic database.'}

@@ -2,12 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import PatientManagement from '../components/PatientManagement';
-import { getAllPatients, createPatient, updatePatient, deletePatient } from '../api/patientApi';
+import {
+  getAllPatients,
+  createPatient,
+  updatePatient,
+  deletePatient,
+} from '../api/patientApi';
 import PatientModal from '../components/PatientModal';
 import PatientViewModal from '../components/PatientViewModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import Toast from '../components/Toast';
 import { canDo } from '../utils/permissions';
+import { formatFullName } from '../utils/nameFormat';
 
 export default function PatientsPage() {
   const { user } = useAuth();
@@ -20,7 +26,7 @@ export default function PatientsPage() {
 
   // Permissions
   const canCreate = canDo(role, 'patients', 'create');
-  const canEdit   = canDo(role, 'patients', 'edit');
+  const canEdit = canDo(role, 'patients', 'edit');
   const canDelete = canDo(role, 'patients', 'delete');
 
   const [patients, setPatients] = useState([]);
@@ -34,11 +40,11 @@ export default function PatientsPage() {
   const [patientToView, setPatientToView] = useState(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState(null);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast(t => ({ ...t, show: false })), 3000);
+    setToast({ message, type });
   };
 
   const fetchPatients = async () => {
@@ -48,14 +54,14 @@ export default function PatientsPage() {
       const data = await getAllPatients();
       setPatients(data || []);
     } catch (err) {
-      setError(err.message || 'Failed to fetch patients.');
+      setError(err.message || 'Failed to fetch patient records.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { 
-    fetchPatients(); 
+  useEffect(() => {
+    fetchPatients();
 
     const handleRealtimeUpdate = () => {
       fetchPatients();
@@ -68,35 +74,36 @@ export default function PatientsPage() {
   }, []);
 
   const handleSavePatient = async (patientData, id) => {
-    try {
-      const patientFullName = `${patientData.first_name || ''} ${patientData.last_name || ''}`.trim();
-      if (id) {
-        await updatePatient(id, patientData);
-        showToast('Patient updated successfully');
-        emitPatientUpdated?.(id, patientFullName);
-      } else {
-        await createPatient(patientData);
-        showToast('Patient registered successfully');
-        emitPatientRegistered?.(patientFullName);
-      }
-      setIsAddEditOpen(false);
-      fetchPatients();
-    } catch (err) {
-      throw err;
+    const patientFullName = formatFullName(patientData.first_name, patientData.middle_name, patientData.last_name);
+    if (id) {
+      await updatePatient(id, patientData);
+      showToast('Patient record updated successfully.');
+      emitPatientUpdated?.(id, patientFullName);
+    } else {
+      await createPatient(patientData);
+      showToast('New patient registered successfully.');
+      emitPatientRegistered?.(patientFullName);
     }
+    setIsAddEditOpen(false);
+    fetchPatients();
   };
 
   const handleDeletePatient = async () => {
+    if (!patientToDelete) return;
+    setIsDeleting(true);
     try {
-      const patientFullName = `${patientToDelete.first_name} ${patientToDelete.last_name}`;
+      const patientFullName = formatFullName(patientToDelete.first_name, patientToDelete.middle_name, patientToDelete.last_name);
       await deletePatient(patientToDelete.id);
-      showToast('Patient record deleted');
+      showToast('Patient record deleted.');
       emitPatientDeleted?.(patientToDelete.id, patientFullName);
       setIsDeleteOpen(false);
+      setPatientToDelete(null);
       fetchPatients();
     } catch (err) {
-      setError(err.message || 'Failed to delete patient');
+      showToast(err.message || 'Failed to delete patient.', 'error');
       setIsDeleteOpen(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -110,53 +117,77 @@ export default function PatientsPage() {
         canCreate={canCreate}
         canEdit={canEdit}
         canDelete={canDelete}
-        onOpenAddModal={canCreate ? () => { setPatientToEdit(null); setIsAddEditOpen(true); } : null}
-        onViewPatient={(p) => { setPatientToView(p); setIsViewOpen(true); }}
-        onEditPatient={canEdit ? (p) => { setPatientToEdit(p); setIsAddEditOpen(true); } : null}
-        onDeletePatient={canDelete ? (p) => { setPatientToDelete(p); setIsDeleteOpen(true); } : null}
+        onOpenAddModal={
+          canCreate
+            ? () => {
+                setPatientToEdit(null);
+                setIsAddEditOpen(true);
+              }
+            : null
+        }
+        onViewPatient={(p) => {
+          setPatientToView(p);
+          setIsViewOpen(true);
+        }}
+        onEditPatient={
+          canEdit
+            ? (p) => {
+                setPatientToEdit(p);
+                setIsAddEditOpen(true);
+              }
+            : null
+        }
+        onDeletePatient={
+          canDelete
+            ? (p) => {
+                setPatientToDelete(p);
+                setIsDeleteOpen(true);
+              }
+            : null
+        }
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         role={role}
       />
 
-      {isAddEditOpen && (
-        <PatientModal
-          isOpen={isAddEditOpen}
-          onClose={() => setIsAddEditOpen(false)}
-          patientToEdit={patientToEdit}
-          onSave={handleSavePatient}
-        />
-      )}
+      <PatientModal
+        isOpen={isAddEditOpen}
+        onClose={() => setIsAddEditOpen(false)}
+        patientToEdit={patientToEdit}
+        onSave={handleSavePatient}
+      />
 
-      {isViewOpen && patientToView && (
-        <PatientViewModal
-          isOpen={isViewOpen}
-          onClose={() => setIsViewOpen(false)}
-          patient={patientToView}
-          onEdit={canEdit ? () => {
-            setIsViewOpen(false);
-            setPatientToEdit(patientToView);
-            setIsAddEditOpen(true);
-          } : null}
-        />
-      )}
+      <PatientViewModal
+        isOpen={isViewOpen && Boolean(patientToView)}
+        onClose={() => setIsViewOpen(false)}
+        patient={patientToView}
+        onEdit={
+          canEdit
+            ? () => {
+                setIsViewOpen(false);
+                setPatientToEdit(patientToView);
+                setIsAddEditOpen(true);
+              }
+            : null
+        }
+      />
 
-      {isDeleteOpen && patientToDelete && (
-        <DeleteConfirmModal
-          isOpen={isDeleteOpen}
-          onClose={() => setIsDeleteOpen(false)}
-          onConfirm={handleDeletePatient}
-          patientName={`${patientToDelete.first_name} ${patientToDelete.last_name}`}
-        />
-      )}
+      <DeleteConfirmModal
+        isOpen={isDeleteOpen && Boolean(patientToDelete)}
+        onClose={() => {
+          if (!isDeleting) {
+            setIsDeleteOpen(false);
+            setPatientToDelete(null);
+          }
+        }}
+        onConfirm={handleDeletePatient}
+        isDeleting={isDeleting}
+        title="Delete Patient Record"
+        description="Are you sure you want to permanently remove this patient record from the database?"
+        patient={patientToDelete}
+      />
 
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(t => ({ ...t, show: false }))}
-        />
-      )}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </>
   );
 }

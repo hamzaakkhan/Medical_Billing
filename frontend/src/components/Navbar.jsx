@@ -1,37 +1,84 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Bell, Search, Wifi, WifiOff, X, CheckCheck, Info, AlertTriangle, CheckCircle, MessageCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import {
+  Menu,
+  Bell,
+  Wifi,
+  WifiOff,
+  X,
+  CheckCheck,
+  Info,
+  AlertTriangle,
+  CheckCircle,
+  MessageCircle,
+  ChevronRight,
+  User,
+  Settings,
+  LogOut,
+  ChevronDown,
+} from 'lucide-react';
 import { ROLE_LABELS } from '../utils/permissions';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
+import UserProfileModal from './UserProfileModal';
+import { formatFullName, getInitials } from '../utils/nameFormat';
 
 function NotificationIcon({ type }) {
   switch (type) {
-    case 'success': return <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />;
-    case 'warning': return <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />;
-    case 'error':   return <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />;
-    case 'message': return <MessageCircle className="w-4 h-4 text-blue-500 flex-shrink-0" />;
-    default:        return <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />;
+    case 'success':
+      return <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />;
+    case 'warning':
+      return <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />;
+    case 'error':
+      return <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />;
+    case 'message':
+      return <MessageCircle className="w-4 h-4 text-blue-500 shrink-0" />;
+    default:
+      return <Info className="w-4 h-4 text-blue-400 shrink-0" />;
   }
 }
 
 function timeAgo(ts) {
   if (!ts) return '';
   const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
-  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 60) return `${diff}s ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   return `${Math.floor(diff / 3600)}h ago`;
 }
 
-export default function Navbar({ onMenuClick, user }) {
-  const roleInfo = ROLE_LABELS[user?.role] || { label: user?.role || '', color: 'bg-gray-100 text-gray-700' };
-  const displayName = user?.first_name
-    ? `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`
-    : user?.email || 'User';
+const PAGE_TITLES = {
+  '/': 'Dashboard Overview',
+  '/users': 'Staff & User Management',
+  '/patients': 'Patient Directory',
+};
 
-  const { connected, unreadCount, notifications, dismissNotification, clearNotifications } = useSocket() || {};
+export default function Navbar({ onMenuClick, user }) {
+  const location = useLocation();
+  const roleInfo = ROLE_LABELS[user?.role] || {
+    label: user?.role || 'Staff',
+    color: 'bg-slate-100 text-slate-700',
+  };
+  const formattedName = formatFullName(user?.first_name, user?.middle_name, user?.last_name);
+  const displayName = formattedName || user?.email || 'User';
+
+  const currentPageTitle = PAGE_TITLES[location.pathname] || 'Dashboard';
+
+  const {
+    connected,
+    unreadCount,
+    notifications,
+    dismissNotification,
+    clearNotifications,
+  } = useSocket() || {};
+
   const [panelOpen, setPanelOpen] = useState(false);
   const panelRef = useRef(null);
 
-  // Close panel when clicking outside
+  const { logout } = useAuth();
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+
   useEffect(() => {
     if (!panelOpen) return;
     const handler = (e) => {
@@ -43,53 +90,77 @@ export default function Navbar({ onMenuClick, user }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [panelOpen]);
 
+  useEffect(() => {
+    if (!profileDropdownOpen) return;
+    const handler = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [profileDropdownOpen]);
+
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-10">
-      {/* Left */}
-      <div className="flex items-center gap-3 flex-1">
+    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 relative z-10">
+      {/* Left: Mobile Menu Button + Breadcrumb */}
+      <div className="flex items-center gap-3 min-w-0">
         <button
+          type="button"
           onClick={onMenuClick}
-          className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          aria-label="Open menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="relative hidden sm:block w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search patients, invoices..."
-            className="w-full pl-9 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all"
-          />
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <span className="hidden sm:inline text-slate-400 dark:text-slate-500 font-medium">
+            MedFlow
+          </span>
+          <ChevronRight className="hidden sm:inline w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
+          <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+            {currentPageTitle}
+          </span>
         </div>
       </div>
 
-      {/* Right */}
-      <div className="flex items-center gap-2">
+      {/* Right: Live Status, Notifications, User Profile */}
+      <div className="flex items-center gap-3">
         {/* Real-time connection indicator */}
         <div
-          title={connected ? 'Real-time connected' : 'Connecting to real-time server…'}
-          className={`hidden sm:flex items-center gap-1.5 text-[10px] font-semibold px-2 py-1 rounded-full border ${
+          title={connected ? 'Real-time updates active' : 'Real-time server offline'}
+          className={`hidden sm:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
             connected
-              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-              : 'text-gray-400 bg-gray-50 border-gray-200'
+              ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/80'
+              : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
           }`}
         >
-          {connected
-            ? <><Wifi className="w-3 h-3" /> Live</>
-            : <><WifiOff className="w-3 h-3" /> Offline</>
-          }
+          {connected ? (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <Wifi className="w-3 h-3" />
+              <span>Live Sync</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3 h-3" />
+              <span>Offline</span>
+            </>
+          )}
         </div>
 
         {/* Notification bell */}
         <div className="relative" ref={panelRef}>
           <button
-            onClick={() => setPanelOpen(o => !o)}
-            className="relative p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            type="button"
+            onClick={() => setPanelOpen((o) => !o)}
+            className="relative p-2 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Notifications"
           >
             <Bell className="w-4.5 h-4.5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5 ring-1 ring-white">
+              <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-1 ring-2 ring-white dark:ring-slate-900">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -97,46 +168,60 @@ export default function Navbar({ onMenuClick, user }) {
 
           {/* Notification Panel */}
           {panelOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-fade-in">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60">
                 <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-semibold text-gray-800">Notifications</span>
+                  <Bell className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Activity Feed
+                  </span>
                   {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {unreadCount}
+                    </span>
                   )}
                 </div>
                 {notifications?.length > 0 && (
                   <button
+                    type="button"
                     onClick={clearNotifications}
-                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                    className="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1 font-medium"
                   >
-                    <CheckCheck className="w-3.5 h-3.5" /> Clear all
+                    <CheckCheck className="w-3.5 h-3.5" /> Clear
                   </button>
                 )}
               </div>
 
-              <div className="max-h-72 overflow-y-auto">
+              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                 {!notifications?.length ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                    <Bell className="w-8 h-8 mb-2 opacity-30" />
-                    <p className="text-xs">No notifications yet</p>
+                  <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-500">
+                    <Bell className="w-7 h-7 mb-2 opacity-30" />
+                    <p className="text-xs font-medium">No recent notifications</p>
                   </div>
                 ) : (
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      className="flex items-start gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors group"
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors group"
                     >
-                      <NotificationIcon type={n.type} />
+                      <div className="mt-0.5">
+                        <NotificationIcon type={n.type} />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 leading-tight">{n.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 leading-snug">{n.message}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.timestamp)}</p>
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                          {n.message}
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                          {timeAgo(n.timestamp)}
+                        </p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => dismissNotification?.(n.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -144,29 +229,94 @@ export default function Navbar({ onMenuClick, user }) {
                   ))
                 )}
               </div>
-
-              <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
-                <div className={`flex items-center gap-1.5 text-[10px] font-medium ${connected ? 'text-emerald-600' : 'text-gray-400'}`}>
-                  {connected ? <><Wifi className="w-3 h-3"/> Real-time connected</> : <><WifiOff className="w-3 h-3"/> Reconnecting…</>}
-                </div>
-              </div>
             </div>
           )}
         </div>
 
-        {/* User avatar */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-gray-200 ml-1">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-semibold text-gray-900 leading-none">{displayName}</p>
-            <p className={`text-[10px] font-medium mt-0.5 leading-none ${roleInfo.color.split(' ').find(c => c.startsWith('text-')) || 'text-gray-500'}`}>
-              {roleInfo.label}
-            </p>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm cursor-pointer">
-            {displayName[0]?.toUpperCase() || 'U'}
-          </div>
+        {/* User profile dropdown trigger & menu */}
+        <div className="relative pl-3 border-l border-slate-200 dark:border-slate-800" ref={profileMenuRef}>
+          <button
+            type="button"
+            onClick={() => setProfileDropdownOpen((prev) => !prev)}
+            className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900"
+            aria-label="User account menu"
+            aria-expanded={profileDropdownOpen}
+          >
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-none">
+                {displayName}
+              </p>
+            </div>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-xs hover:shadow transition">
+              {getInitials(user?.first_name, user?.last_name)}
+            </div>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform hidden sm:block ${
+                profileDropdownOpen ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''
+              }`}
+            />
+          </button>
+
+          {/* Profile Dropdown Menu */}
+          {profileDropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-fade-in">
+              {/* User Identity Summary */}
+              <div className="px-4 py-3.5 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{displayName}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{user?.email}</p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span className="text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-md">
+                    {roleInfo.label}
+                  </span>
+                  {user?.is_root_admin && (
+                    <span className="text-[10px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-md">
+                      Root Admin
+                    </span>
+                  )}
+                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md ml-auto">
+                    Active
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="p-1.5 space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileModalOpen(true);
+                    setProfileDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50/70 dark:hover:bg-blue-950/40 transition text-left cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span>Account Settings & Profile</span>
+                </button>
+              </div>
+
+              <div className="p-1.5 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    logout?.();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50/70 dark:hover:bg-red-950/40 transition text-left cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 text-red-500 dark:text-red-400" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* User Profile & Account Settings Modal */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+      />
     </header>
   );
 }

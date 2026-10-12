@@ -4,6 +4,7 @@ import React, {
 } from 'react';
 import { getSocket, destroySocket } from '../api/socket';
 import { useAuth } from './AuthContext';
+import { formatFullName } from '../utils/nameFormat';
 
 const SocketContext = createContext(null);
 
@@ -67,9 +68,7 @@ export function SocketProvider({ children }) {
         userId: user.id,
         email:  user.email,
         role:   user.role,
-        name:   user.first_name
-          ? `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`
-          : user.email,
+        name:   formatFullName(user.first_name, user.middle_name, user.last_name) || user.email,
       });
     };
 
@@ -110,9 +109,7 @@ export function SocketProvider({ children }) {
     };
 
     const onSessionReplaced = () => {
-      setSocketError('Your session was replaced by a login from another browser.');
-      destroySocket();
-      setConnected(false);
+      console.warn('[socket] multiple sessions active');
     };
 
     const onPatientsUpdated = (data) => {
@@ -130,8 +127,12 @@ export function SocketProvider({ children }) {
     socket.on('session:replaced',  onSessionReplaced);
     socket.on('patients:updated',  onPatientsUpdated);
 
-    // Connect now
-    if (!socket.connected) socket.connect();
+    // Connect now or register user presence immediately if already connected
+    if (socket.connected) {
+      onConnect();
+    } else {
+      socket.connect();
+    }
 
     return () => {
       // Cleanup listeners only — don't destroy the socket on every re-render
@@ -193,9 +194,7 @@ export function SocketProvider({ children }) {
   const sendMessage = useCallback((toUserId, message) => {
     emit('message:send', {
       toUserId,
-      from: user?.first_name
-        ? `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`
-        : user?.email,
+      from: formatFullName(user?.first_name, user?.middle_name, user?.last_name) || user?.email,
       message,
     });
   }, [emit, user]);

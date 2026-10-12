@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-const API_BASE = 'http://localhost:8000/patients';
+const API_BASE = `${API_BASE_URL}/patients`;
 
 const handleAxiosError = (err) => {
   if (err.response) {

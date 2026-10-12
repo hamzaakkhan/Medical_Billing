@@ -16,11 +16,9 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 
 const PORT = process.env.SOCKET_PORT || 4000;
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000').split(',');
 
 // ─── HTTP + Socket.IO setup ───────────────────────────────────────────────────
 const httpServer = createServer((req, res) => {
-  // Simple health-check endpoint so the frontend can verify the server is up
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', service: 'medflow-socket', port: PORT }));
@@ -32,7 +30,7 @@ const httpServer = createServer((req, res) => {
 
 const io = new Server(httpServer, {
   cors: {
-    origin: ALLOWED_ORIGINS,
+    origin: true, // Allow connections from laptop (localhost) and phone/LAN devices
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -44,21 +42,19 @@ const io = new Server(httpServer, {
 /** Map<socketId, { userId, email, role, name }> */
 const connectedUsers = new Map();
 
-/** Map<userId, socketId> — one active socket per user */
-const userSocketMap = new Map();
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 /**
  * Build the "online staff" list that is safe to broadcast
- * (no sensitive data, just presence info)
+ * (deduplicated by userId so multi-tab users appear once)
  */
 function getOnlineStaff() {
-  return Array.from(connectedUsers.values()).map(({ userId, email, role, name }) => ({
-    userId,
-    email,
-    role,
-    name,
-  }));
+  const staffMap = new Map();
+  for (const { userId, email, role, name } of connectedUsers.values()) {
+    if (!staffMap.has(userId)) {
+      staffMap.set(userId, { userId, email, role, name });
+    }
+  }
+  return Array.from(staffMap.values());
 }
 
 /** Broadcast the updated online list to everyone */
@@ -76,10 +72,9 @@ function notifyAll(event, payload) {
   io.emit(event, payload);
 }
 
-/** Emit a notification to a specific user (by userId) */
+/** Emit a notification to a specific user (by userId) across all their active tabs */
 function notifyUser(userId, event, payload) {
-  const sid = userSocketMap.get(String(userId));
-  if (sid) io.to(sid).emit(event, payload);
+  io.to(`user:${userId}`).emit(event, payload);
 }
 
 // ─── Connection handler ───────────────────────────────────────────────────────
@@ -95,22 +90,10 @@ io.on('connection', (socket) => {
 
     const userData = { userId: String(userId), email, role, name };
 
-    // If this user already had a socket open, disconnect it gracefully
-    const prevSid = userSocketMap.get(String(userId));
-    if (prevSid && prevSid !== socket.id) {
-      const prevSocket = io.sockets.sockets.get(prevSid);
-      if (prevSocket) {
-        prevSocket.emit('session:replaced', { message: 'Logged in from another session.' });
-        prevSocket.disconnect(true);
-      }
-      connectedUsers.delete(prevSid);
-    }
-
-    // Register new session
+    // Register session
     connectedUsers.set(socket.id, userData);
-    userSocketMap.set(String(userId), socket.id);
 
-    // Join role-specific room + personal room
+    // Join role-specific room + personal room (supports multiple tabs / devices)
     socket.join(`role:${role}`);
     socket.join(`user:${userId}`);
 
@@ -128,7 +111,7 @@ io.on('connection', (socket) => {
       id:        `join-${Date.now()}`,
       type:      'info',
       title:     'Staff Online',
-      message:   `${name || email} (${role}) just signed in.`,
+      message:   `${name || email} (${role}) is active.`,
       timestamp: new Date().toISOString(),
       targetRoles: ['admin'],
     });
@@ -154,7 +137,7 @@ io.on('connection', (socket) => {
     notifyRole('admin', 'notification', payload);
     notifyRole('receptionist', 'notification', payload);
 
-    // Broadcast updated patient count signal
+    // Broadcast updated patient count signal to all connected dashboards
     notifyAll('patients:updated', { action: 'created', patientName });
     console.log(`[socket] patient:registered → ${patientName}`);
   });
@@ -261,7 +244,6 @@ io.on('connection', (socket) => {
     const user = connectedUsers.get(socket.id);
     if (user) {
       console.log(`[socket] disconnected: ${user.name || user.email} (${user.role}) — ${reason}`);
-      userSocketMap.delete(user.userId);
       connectedUsers.delete(socket.id);
       broadcastOnlineStaff();
     }
@@ -269,9 +251,8 @@ io.on('connection', (socket) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-httpServer.listen(PORT, () => {
-  console.log(`\n✅ MedFlow Socket.IO server running on http://localhost:${PORT}`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n✅ MedFlow Socket.IO server running on port ${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/health`);
-  console.log(`   Allowed origins: ${ALLOWED_ORIGINS.join(', ')}\n`);
+  console.log(`   Accepting connections from localhost and local network\n`);
 });
-
