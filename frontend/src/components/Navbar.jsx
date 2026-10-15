@@ -22,6 +22,8 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import UserProfileModal from './UserProfileModal';
 import { formatFullName, getInitials } from '../utils/nameFormat';
+import { getStoredAvatar } from '../utils/avatarStorage';
+import BrandLogo from './BrandLogo';
 
 function NotificationIcon({ type }) {
   switch (type) {
@@ -50,6 +52,7 @@ const PAGE_TITLES = {
   '/': 'Dashboard Overview',
   '/users': 'Staff & User Management',
   '/patients': 'Patient Directory',
+  '/appointments': 'Appointments',
 };
 
 export default function Navbar({ onMenuClick, user }) {
@@ -62,6 +65,10 @@ export default function Navbar({ onMenuClick, user }) {
   const displayName = formattedName || user?.email || 'User';
 
   const currentPageTitle = PAGE_TITLES[location.pathname] || 'Dashboard';
+
+  useEffect(() => {
+    document.title = currentPageTitle ? `${currentPageTitle} | BillMD` : 'BillMD';
+  }, [currentPageTitle]);
 
   const {
     connected,
@@ -78,6 +85,21 @@ export default function Navbar({ onMenuClick, user }) {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const profileMenuRef = useRef(null);
+  const [avatarUrl, setAvatarUrl] = useState(() => getStoredAvatar(user?.id));
+
+  useEffect(() => {
+    setAvatarUrl(getStoredAvatar(user?.id));
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleAvatarUpdate = (e) => {
+      if (e.detail?.userId === user?.id) {
+        setAvatarUrl(e.detail.dataUrl || null);
+      }
+    };
+    window.addEventListener('medflow-avatar-updated', handleAvatarUpdate);
+    return () => window.removeEventListener('medflow-avatar-updated', handleAvatarUpdate);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -114,11 +136,14 @@ export default function Navbar({ onMenuClick, user }) {
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 text-sm min-w-0">
-          <span className="hidden sm:inline text-slate-400 dark:text-slate-500 font-medium">
-            MedFlow
+        {/* Mobile brand badge */}
+        <BrandLogo size="sm" showName={true} to="/" className="lg:hidden" />
+
+        <div className="hidden lg:flex items-center gap-2 text-sm min-w-0">
+          <span className="text-slate-400 dark:text-slate-500 font-medium">
+            BillMD
           </span>
-          <ChevronRight className="hidden sm:inline w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
+          <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
           <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">
             {currentPageTitle}
           </span>
@@ -247,8 +272,12 @@ export default function Navbar({ onMenuClick, user }) {
                 {displayName}
               </p>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-xs hover:shadow transition">
-              {getInitials(user?.first_name, user?.last_name)}
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 flex items-center justify-center text-white text-xs font-bold shadow-xs hover:shadow transition overflow-hidden shrink-0">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <span>{getInitials(user?.first_name, user?.last_name)}</span>
+              )}
             </div>
             <ChevronDown
               className={`w-3.5 h-3.5 text-slate-400 transition-transform hidden sm:block ${

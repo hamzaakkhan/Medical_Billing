@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -14,17 +14,35 @@ import {
   Calendar,
   KeyRound,
   CheckCircle2,
+  Camera,
+  Trash2,
+  Edit3,
   BadgeCheck,
 } from 'lucide-react';
 import { updateMyProfile, changeMyPassword, getMyProfile } from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS } from '../utils/permissions';
 import { formatFullName, getInitials, normalizeName } from '../utils/nameFormat';
+import { getStoredAvatar, saveStoredAvatar } from '../utils/avatarStorage';
+
+const ROLE_DESCRIPTIONS = {
+  admin: 'Full system oversight, staff administration, practice configurations, and reporting.',
+  receptionist: 'Patient registration, appointment scheduling, front-desk check-in, and intake directory.',
+  doctor: 'Clinical charting, patient consultations, appointment calendar, and diagnostic reviews.',
+  coder: 'Medical diagnostic coding (ICD-10/CPT), clinical record audits, and code assignments.',
+  biller: 'Claims submission, payer reconciliation, billing management, and revenue analytics.',
+};
 
 export default function UserProfileModal({ isOpen, onClose }) {
   const { user: authUser, updateCurrentUser } = useAuth();
+  const fileInputRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'password'
+  // Tabs: 'overview' | 'edit' | 'password'
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState(() => getStoredAvatar(authUser?.id));
+  const [avatarNotice, setAvatarNotice] = useState('');
 
   // Profile Form State
   const [profileData, setProfileData] = useState({
@@ -56,6 +74,9 @@ export default function UserProfileModal({ isOpen, onClose }) {
   // Sync state when opening
   useEffect(() => {
     if (!isOpen) return;
+
+    setAvatarUrl(getStoredAvatar(authUser?.id));
+    setAvatarNotice('');
 
     if (authUser) {
       setProfileData({
@@ -93,7 +114,7 @@ export default function UserProfileModal({ isOpen, onClose }) {
     setShowCurrentPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
-  }, [isOpen]);
+  }, [isOpen, authUser?.id]);
 
   // Lock scroll & handle Escape key
   useEffect(() => {
@@ -119,6 +140,7 @@ export default function UserProfileModal({ isOpen, onClose }) {
 
   const roleInfo = ROLE_LABELS[authUser?.role] || {
     label: authUser?.role || 'Staff Member',
+    badge: 'STAFF',
     color: 'bg-slate-100 text-slate-700',
   };
 
@@ -132,6 +154,47 @@ export default function UserProfileModal({ isOpen, onClose }) {
         day: 'numeric',
       })
     : null;
+
+  // Avatar Upload Handlers (Client preview & future backend upload hook)
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate image file type and size (< 5MB)
+    if (!file.type.startsWith('image/')) {
+      setServerError('Please select a valid image file (PNG, JPEG, or WebP).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setServerError('Image size must be smaller than 5MB.');
+      return;
+    }
+
+    setServerError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      saveStoredAvatar(authUser?.id, dataUrl);
+      setAvatarUrl(dataUrl);
+      setAvatarNotice('Photo preview updated. Component is structured for future cloud storage integration.');
+      setTimeout(() => setAvatarNotice(''), 4000);
+    };
+    reader.readAsDataURL(file);
+
+    // Note for backend developers:
+    // Future API integration:
+    // const formData = new FormData();
+    // formData.append('avatar', file);
+    // await uploadAvatarApi(formData);
+  };
+
+  const handleRemoveAvatar = () => {
+    saveStoredAvatar(authUser?.id, null);
+    setAvatarUrl(null);
+    setAvatarNotice('Profile photo reset to default placeholder initials.');
+    setTimeout(() => setAvatarNotice(''), 3000);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   // Validation
   const validateProfile = () => {
@@ -289,7 +352,7 @@ export default function UserProfileModal({ isOpen, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="user-profile-title"
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/35 backdrop-blur-[2px] animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmittingProfile && !isSubmittingPassword) {
           onClose();
@@ -297,16 +360,49 @@ export default function UserProfileModal({ isOpen, onClose }) {
       }}
     >
       <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200/90 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden my-auto animate-fade-in">
-        {/* Header with Account Identity */}
+        {/* Hidden input for future & local profile photo upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleAvatarFileChange}
+          className="hidden"
+          aria-label="Upload profile image"
+        />
+
+        {/* Header with Account Identity & Redesigned Avatar Area */}
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 shrink-0">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-sm shrink-0">
-                {getInitials(authUser?.first_name, authUser?.last_name)}
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Redesigned Profile Image Container */}
+              <div className="relative shrink-0">
+                <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-600 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-md ring-2 ring-white dark:ring-slate-800 overflow-hidden">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{getInitials(authUser?.first_name, authUser?.last_name)}</span>
+                  )}
+                </div>
+
+                {/* Upload action overlay button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1.5 -right-1.5 p-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl shadow-md ring-2 ring-white dark:ring-slate-900 transition-transform hover:scale-105 cursor-pointer"
+                  title="Upload profile photo"
+                  aria-label="Upload profile photo"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
               </div>
+
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 id="user-profile-title" className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+                  <h3 id="user-profile-title" className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 truncate">
                     {displayName}
                   </h3>
                   {authUser?.is_root_admin && (
@@ -323,13 +419,34 @@ export default function UserProfileModal({ isOpen, onClose }) {
                   >
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
-                        authUser?.is_active ? 'bg-emerald-500' : 'bg-slate-400'
+                        authUser?.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                       }`}
                     />
                     {authUser?.is_active ? 'Active' : 'Deactivated'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{authUser?.email}</p>
+
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {authUser?.email}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 dark:text-blue-400">
+                    {roleInfo.label}
+                    <Lock className="w-3 h-3 text-slate-400 dark:text-slate-500" title="Role assigned by clinic administrator" />
+                  </span>
+                </div>
+
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Remove custom photo</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -349,19 +466,37 @@ export default function UserProfileModal({ isOpen, onClose }) {
             <button
               type="button"
               onClick={() => {
-                setActiveTab('profile');
+                setActiveTab('overview');
                 setServerError('');
                 setSuccessMessage('');
               }}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'profile'
+                activeTab === 'overview'
                   ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-xs border border-slate-200/80 dark:border-slate-700'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
               }`}
             >
               <User className="w-3.5 h-3.5" />
-              <span>Personal Details</span>
+              <span>Account Overview</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('edit');
+                setServerError('');
+                setSuccessMessage('');
+              }}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'edit'
+                  ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-xs border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit Profile</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -381,6 +516,14 @@ export default function UserProfileModal({ isOpen, onClose }) {
           </div>
         </div>
 
+        {/* Avatar Photo Feedback Notice */}
+        {avatarNotice && (
+          <div className="mx-6 mt-3 p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-blue-800 dark:text-blue-300 text-xs flex items-center gap-2 shrink-0 animate-fade-in">
+            <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="font-medium">{avatarNotice}</span>
+          </div>
+        )}
+
         {/* Alerts / Feedback Banners */}
         {serverError && (
           <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-800 dark:text-red-200 text-xs flex items-start gap-2.5 shrink-0 animate-fade-in">
@@ -398,14 +541,66 @@ export default function UserProfileModal({ isOpen, onClose }) {
 
         {/* Modal Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-6 py-5 text-slate-700 dark:text-slate-200">
-          {activeTab === 'profile' ? (
-            <div className="space-y-5">
-              {/* System Metadata Card (Read-Only) */}
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl">
-                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5">
-                  System Account Credentials
+          {/* TAB 1: Account Overview */}
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              {/* Role & Access Tier Card (Strictly Non-Editable) */}
+              <div className="p-4 bg-gradient-to-br from-slate-50 to-blue-50/40 dark:from-slate-800/60 dark:to-blue-950/20 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+                      <Shield className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                        Assigned Role & Privileges
+                      </p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {roleInfo.label}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Non-Editable</span>
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed">
+                  {ROLE_DESCRIPTIONS[authUser?.role] || 'Standard clinic user access.'}
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+
+                <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                  <Lock className="w-3 h-3 shrink-0" />
+                  <span>Role assignments are governed by clinic administrators and cannot be altered by users.</span>
+                </div>
+              </div>
+
+              {/* Account Credentials Card */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl">
+                <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+                  Account Details
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-semibold">
+                      Full Name
+                    </span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                      {displayName}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-semibold">
+                      Work Email
+                    </span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate block">
+                      {authUser?.email}
+                    </span>
+                  </div>
+
                   <div>
                     <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-semibold">
                       Account ID
@@ -414,34 +609,69 @@ export default function UserProfileModal({ isOpen, onClose }) {
                       #{authUser?.id || '—'}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-semibold">
-                      Assigned Role
-                    </span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-1">
-                      {roleInfo.label}
-                      <Lock className="w-3 h-3 text-slate-400 dark:text-slate-500" title="Role is managed by administration" />
-                    </span>
-                  </div>
+
                   {memberSinceFormatted && (
                     <div>
                       <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-semibold">
                         Member Since
                       </span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                      <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         {memberSinceFormatted}
                       </span>
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500">
-                  Role assignments and administrative access levels are managed by clinic administrators.
+              </div>
+
+              {/* Quick Actions Card */}
+              <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/50 rounded-2xl flex items-center justify-between gap-3">
+                <div className="text-xs">
+                  <p className="font-semibold text-slate-800 dark:text-slate-200">Need to update your details?</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Edit your name or email, or update your security credentials.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('edit')}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition shrink-0 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Profile</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Edit Profile Form */}
+          {activeTab === 'edit' && (
+            <div className="space-y-4">
+              {/* Role Display (Locked / Non-Editable) */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider">
+                        Assigned Role (Non-Editable)
+                      </span>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {roleInfo.label}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                    Read-Only
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                  Role assignments and permissions are strictly managed by clinic administration.
                 </p>
               </div>
 
-              {/* Editable Profile Information */}
-              <form id="profile-form" onSubmit={handleProfileSubmit} className="space-y-4">
+              {/* Editable Fields Form */}
+              <form id="profile-edit-form" onSubmit={handleProfileSubmit} className="space-y-3.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -524,7 +754,7 @@ export default function UserProfileModal({ isOpen, onClose }) {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Email Address <span className="text-red-500">*</span>
+                    Work Email Address <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
@@ -549,15 +779,17 @@ export default function UserProfileModal({ isOpen, onClose }) {
                 </div>
               </form>
             </div>
-          ) : (
-            /* Tab 2: Security & Password */
+          )}
+
+          {/* TAB 3: Security & Password */}
+          {activeTab === 'password' && (
             <form id="password-form" onSubmit={handlePasswordSubmit} className="space-y-4">
               <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-xl text-xs text-blue-950 dark:text-blue-200 flex items-start gap-2.5">
                 <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-blue-900 dark:text-blue-300">Healthcare Security Requirement</p>
                   <p className="text-[11px] text-blue-800/90 dark:text-blue-300/80 mt-0.5 leading-relaxed">
-                    To safeguard clinical billing records and patient data, your password must be at least 8 characters long and differ from your current password.
+                    To safeguard patient records, your password must be at least 8 characters long and differ from your current password.
                   </p>
                 </div>
               </div>
@@ -696,19 +928,48 @@ export default function UserProfileModal({ isOpen, onClose }) {
 
         {/* Modal Footer Actions */}
         <div className="px-6 py-4 bg-slate-50/70 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmittingProfile || isSubmittingPassword}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-xl transition disabled:opacity-50 cursor-pointer"
-          >
-            Cancel
-          </button>
+          {activeTab === 'overview' ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer"
+            >
+              Close
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTab === 'edit') {
+                  // Revert edits
+                  if (authUser) {
+                    setProfileData({
+                      first_name: authUser.first_name || '',
+                      middle_name: authUser.middle_name || '',
+                      last_name: authUser.last_name || '',
+                      email: authUser.email || '',
+                    });
+                  }
+                  setActiveTab('overview');
+                  setProfileErrors({});
+                  setServerError('');
+                } else {
+                  setActiveTab('overview');
+                  setPasswordErrors({});
+                  setServerError('');
+                }
+              }}
+              disabled={isSubmittingProfile || isSubmittingPassword}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700 rounded-xl transition disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
 
-          {activeTab === 'profile' ? (
+          {activeTab === 'edit' && (
             <button
               type="submit"
-              form="profile-form"
+              form="profile-edit-form"
               disabled={isSubmittingProfile}
               className="inline-flex items-center gap-1.5 px-4.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
             >
@@ -724,7 +985,9 @@ export default function UserProfileModal({ isOpen, onClose }) {
                 </>
               )}
             </button>
-          ) : (
+          )}
+
+          {activeTab === 'password' && (
             <button
               type="submit"
               form="password-form"
@@ -751,4 +1014,3 @@ export default function UserProfileModal({ isOpen, onClose }) {
 
   return createPortal(modalContent, document.body);
 }
-

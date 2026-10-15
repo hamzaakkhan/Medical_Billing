@@ -42,7 +42,7 @@ export default function Dashboard({
             <span>Outpatient Reception & Patient Intake Desk</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            Welcome to MedFlow Receptionist Portal
+            Welcome to BillMD
           </h2>
           <p className="mt-2 text-sm sm:text-base text-sky-100 leading-relaxed">
             Manage patient registrations, access medical charts, and update contact profiles in real-time

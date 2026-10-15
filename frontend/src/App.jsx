@@ -8,6 +8,8 @@ import Login from './pages/Login';
 import DashboardPage from './pages/DashboardPage';
 import PatientsPage from './pages/PatientsPage';
 import UsersPage from './pages/UsersPage';
+import AppointmentsPage from './pages/AppointmentsPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Protected Route — requires login, optionally requires a specific set of roles
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -55,6 +57,18 @@ export default function App() {
                   element={
                     <ProtectedRoute allowedRoles={['admin']}>
                       <UsersPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Appointments — Unified Calendar (Admin, Receptionist, Doctor) */}
+                <Route
+                  path="appointments"
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'receptionist', 'doctor']}>
+                      <ErrorBoundary title="Appointment Calendar Error">
+                        <AppointmentsPage />
+                      </ErrorBoundary>
                     </ProtectedRoute>
                   }
                 />

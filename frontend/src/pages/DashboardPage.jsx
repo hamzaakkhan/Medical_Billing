@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAllPatients } from '../api/patientApi';
 import AdminDashboard from '../components/dashboards/AdminDashboard';
 import ReceptionistDashboard from '../components/dashboards/ReceptionistDashboard';
+import DoctorDashboard from '../components/dashboards/DoctorDashboard';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -47,6 +48,10 @@ export default function DashboardPage() {
 
   if (user?.role === 'receptionist') {
     return <ReceptionistDashboard {...props} />;
+  }
+
+  if (user?.role === 'doctor') {
+    return <DoctorDashboard {...props} />;
   }
 
   // Fallback for roles whose dedicated portals are not enabled yet

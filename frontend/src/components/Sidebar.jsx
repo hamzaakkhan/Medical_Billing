@@ -4,25 +4,27 @@ import {
   LayoutDashboard,
   Users,
   UserRound,
-  Activity,
+  Calendar,
   X,
-  Sun,
-  Moon,
-  Sliders,
+  Settings,
 } from 'lucide-react';
 import { NAV_CONFIG } from '../utils/permissions';
-import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import SettingsModal from './SettingsModal';
+import BrandLogo from './BrandLogo';
 
 const ICON_MAP = {
   LayoutDashboard,
   Users,
   UserRound,
+  Calendar,
 };
 
 export default function Sidebar({ isOpen, setIsOpen, userRole }) {
-  const navItems = NAV_CONFIG[userRole] || [];
-  const { isDark, toggleTheme } = useTheme();
+  const { user } = useAuth();
+  const effectiveRole = userRole || user?.role;
+  const navItems = NAV_CONFIG[effectiveRole] || [];
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   return (
@@ -45,19 +47,7 @@ export default function Sidebar({ isOpen, setIsOpen, userRole }) {
       >
         {/* Brand Header */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-xs">
-              <Activity className="w-5 h-5 text-white" strokeWidth={2.5} />
-            </div>
-            <div>
-              <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-none block">
-                MedFlow
-              </span>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-1 leading-none">
-                Clinic Portal
-              </p>
-            </div>
-          </div>
+          <BrandLogo size="md" to="/" />
           <button
             type="button"
             onClick={() => setIsOpen(false)}
@@ -124,50 +114,24 @@ export default function Sidebar({ isOpen, setIsOpen, userRole }) {
           })}
         </nav>
 
-        {/* Bottom Shelf: Theme Toggle & Settings */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 shrink-0 space-y-2">
-          {/* Quick Theme Switch */}
-          <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
-            <div className="flex items-center gap-2 min-w-0">
-              {isDark ? (
-                <Moon className="w-4 h-4 text-indigo-400 shrink-0" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-500 shrink-0" />
-              )}
-              <span className="text-xs font-medium text-slate-700 dark:text-slate-300 select-none">
-                {isDark ? 'Dark Mode' : 'Light Mode'}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
-                isDark ? 'bg-blue-600' : 'bg-slate-200'
-              }`}
-              role="switch"
-              aria-checked={isDark}
-              aria-label="Toggle dark mode"
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                  isDark ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* System Settings & Preferences Button */}
+        {/* Bottom Shelf: Settings Only */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 shrink-0">
+          {/* Settings Entry */}
           <button
             type="button"
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200/80 dark:hover:border-slate-700 transition cursor-pointer group"
+            onClick={() => {
+              setIsSettingsOpen(true);
+              if (window.innerWidth < 1024) setIsOpen(false);
+            }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800/80 border border-transparent hover:border-slate-200/80 dark:hover:border-slate-700/60 shadow-2xs hover:shadow-xs transition cursor-pointer group"
+            aria-label="Open system settings and preferences"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <Sliders className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
-              <span className="truncate">Settings & UI</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Settings className="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
+              <span className="truncate">Settings</span>
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
-              Config
+              Preferences
             </span>
           </button>
         </div>

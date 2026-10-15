@@ -12,25 +12,38 @@ export const ROLES = {
 // Navigation items per completed role
 export const NAV_CONFIG = {
   admin: [
-    { id: '/',         label: 'Dashboard',         icon: 'LayoutDashboard' },
-    { id: '/users',    label: 'Staff & Users',     icon: 'Users' },
-    { id: '/patients', label: 'Patient Directory', icon: 'UserRound', badge: 'View Only' },
+    { id: '/',             label: 'Dashboard',            icon: 'LayoutDashboard' },
+    { id: '/appointments', label: 'Appointments',         icon: 'Calendar', badge: 'View Only' },
+    { id: '/users',        label: 'Staff & Users',        icon: 'Users' },
+    { id: '/patients',     label: 'Patient Directory',    icon: 'UserRound', badge: 'View Only' },
   ],
   receptionist: [
-    { id: '/',         label: 'Dashboard',         icon: 'LayoutDashboard' },
-    { id: '/patients', label: 'Patients',          icon: 'UserRound' },
+    { id: '/',             label: 'Dashboard',            icon: 'LayoutDashboard' },
+    { id: '/appointments', label: 'Appointments',         icon: 'Calendar' },
+    { id: '/patients',     label: 'Patients',             icon: 'UserRound' },
+  ],
+  doctor: [
+    { id: '/',             label: 'Dashboard',            icon: 'LayoutDashboard' },
+    { id: '/appointments', label: 'My Appointments',      icon: 'Calendar' },
   ],
 };
 
 // Permissions per role per resource
 export const PERMISSIONS = {
   admin: {
-    patients: { view: true, create: false, edit: false, delete: false },
-    users:    { view: true, create: true,  edit: true,  delete: true  },
+    appointments: { view: true, create: false, edit: false, delete: false },
+    patients:     { view: true, create: false, edit: false, delete: false },
+    users:        { view: true, create: true,  edit: true,  delete: true  },
   },
   receptionist: {
-    patients: { view: true, create: true,  edit: true,  delete: true  },
-    users:    { view: false, create: false, edit: false, delete: false },
+    appointments: { view: true, create: true,  edit: true,  delete: true  },
+    patients:     { view: true, create: true,  edit: true,  delete: true  },
+    users:        { view: false, create: false, edit: false, delete: false },
+  },
+  doctor: {
+    appointments: { view: true, create: true,  edit: true,  delete: false },
+    patients:     { view: true, create: false, edit: false, delete: false },
+    users:        { view: false, create: false, edit: false, delete: false },
   },
 };
 
