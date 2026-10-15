@@ -17,7 +17,27 @@ from app.services.appointments import (
     update_appointment_logic,
 )
 
+from app.models.users import Roles, User
+from app.schema.users import role_name, userResponse
+
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
+
+
+@router.get("/doctors", response_model=list[userResponse], status_code=status.HTTP_200_OK)
+def get_eligible_doctors(
+    db: Session = Depends(get_db),
+    user_id: TokenData = Depends(get_current_user),
+):
+    """Retrieve all active doctors for appointment scheduling and filtering."""
+    doc_role = db.query(Roles).filter(Roles.role == role_name.DOCTOR.value).first()
+    if not doc_role:
+        return []
+    return (
+        db.query(User)
+        .filter(User.role_id == doc_role.id, User.is_active == True)
+        .order_by(User.first_name.asc(), User.last_name.asc())
+        .all()
+    )
 
 
 @router.get("/", response_model=list[appointmentResponse], status_code=status.HTTP_200_OK)

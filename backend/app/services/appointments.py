@@ -25,9 +25,13 @@ def _get_user_and_role(db: Session, user_id):
     return user, role_str
 
 
-def _verify_doctor(db: Session, doctor_id: int):
+def _verify_doctor(db: Session, doctor_id: int, for_update: bool = False):
     """Ensure doctor exists, is active, and possesses the doctor role."""
-    doctor = db.query(User).filter(User.id == doctor_id).first()
+    query = db.query(User).filter(User.id == doctor_id)
+    bind = db.get_bind() if hasattr(db, "get_bind") else db.bind
+    if for_update and bind and bind.dialect.name != "sqlite":
+        query = query.with_for_update()
+    doctor = query.first()
     if not doctor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -45,6 +49,7 @@ def _verify_doctor(db: Session, doctor_id: int):
             detail=f"User with id {doctor_id} does not have the doctor role",
         )
     return doctor
+
 
 
 def _check_conflicts(
@@ -162,7 +167,7 @@ def add_appointment_logic(appointment_data: appointmentCreate, db: Session, user
             detail=f"Patient with id {appointment_data.patient_id} does not exist",
         )
 
-    _verify_doctor(db, appointment_data.doctor_id)
+    _verify_doctor(db, appointment_data.doctor_id, for_update=True)
     _check_conflicts(
         db,
         appointment_data.doctor_id,

@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.hash import hash, hash_password, verify_password
+from app.models.appointments import appointments
 from app.models.users import Roles, User
 from app.schema.users import (
     passwordChangeRequest,
@@ -276,14 +277,36 @@ def delete_user_logic(id: int, db: Session, user_id):
             detail="Only the root admin can delete an admin",
         )
 
+    # Check for foreign key references in appointments (preserving historical and audit clinical data)
+    has_appointments = (
+        db.query(appointments.id)
+        .filter(
+            (appointments.doctor_id == target_user.id)
+            | (appointments.scheduled_by == target_user.id)
+        )
+        .first()
+        is not None
+    )
+    if has_appointments:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete user: this user is associated with existing appointment records. Deactivate the account instead to preserve clinical history.",
+        )
+
     try:
         db.delete(target_user)
         db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete user: account is referenced by existing clinical or administrative records. Deactivate the account instead.",
+        )
     except Exception:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete user",
+            detail="An unexpected error occurred while deleting the user",
         )
 
     return "User deleted successfully"

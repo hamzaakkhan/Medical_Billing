@@ -2,6 +2,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.auth.hash import verify_password
+from app.models.appointments import appointments
+from app.models.patients import Patients
 from app.models.users import User
 from app.schema.auth import TokenData
 from app.schema.users import (
@@ -233,6 +235,85 @@ def test_root_admin_can_delete_user(db_session, root_admin, doctor_user):
     assert (
         db_session.query(User).filter(User.id == doctor_user.id).first() is None
     )
+
+
+def test_cannot_delete_user_with_appointments_as_doctor(
+    db_session, root_admin, doctor_user
+):
+    from datetime import datetime, timezone, timedelta
+    patient = Patients(
+        first_name="Jane",
+        last_name="Doe",
+        dob=datetime(1995, 5, 5).date(),
+        address="100 Hospital Way",
+        city="HealthCity",
+        state="CA",
+        postal_code="90210",
+        email="jane.doe@example.com",
+        phone="+1987654321",
+    )
+    db_session.add(patient)
+    db_session.commit()
+
+    now = datetime.now(timezone.utc)
+    appt = appointments(
+        patient_id=patient.id,
+        doctor_id=doctor_user.id,
+        scheduled_by=root_admin.id,
+        start_at=now,
+        ends_at=now + timedelta(minutes=30),
+        reason="Consultation",
+        status="scheduled",
+    )
+    db_session.add(appt)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        delete_user_logic(
+            doctor_user.id, db_session, TokenData(id=root_admin.id)
+        )
+    assert exc.value.status_code == 409
+    assert "associated with existing appointment records" in exc.value.detail
+    assert "Deactivate" in exc.value.detail
+
+
+def test_cannot_delete_user_with_appointments_as_scheduler(
+    db_session, root_admin, regular_admin, doctor_user
+):
+    from datetime import datetime, timezone, timedelta
+    patient = Patients(
+        first_name="Bob",
+        last_name="Smith",
+        dob=datetime(1980, 2, 2).date(),
+        address="200 Main St",
+        city="HealthCity",
+        state="CA",
+        postal_code="90210",
+        email="bob.smith@example.com",
+        phone="+1234567800",
+    )
+    db_session.add(patient)
+    db_session.commit()
+
+    now = datetime.now(timezone.utc)
+    appt = appointments(
+        patient_id=patient.id,
+        doctor_id=doctor_user.id,
+        scheduled_by=regular_admin.id,
+        start_at=now,
+        ends_at=now + timedelta(minutes=30),
+        reason="Follow up",
+        status="scheduled",
+    )
+    db_session.add(appt)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        delete_user_logic(
+            regular_admin.id, db_session, TokenData(id=root_admin.id)
+        )
+    assert exc.value.status_code == 409
+    assert "associated with existing appointment records" in exc.value.detail
 
 
 def test_get_current_user_profile(db_session, doctor_user, root_admin):
