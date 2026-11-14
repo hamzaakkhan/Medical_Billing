@@ -9,7 +9,7 @@ class Setting(BaseSettings):
     DATABASE_URL_POOLED: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRY: int = 30
+    ACCESS_TOKEN_EXPIRY: int = 240  # 4 hours (240 minutes)
     CORS_ORIGINS: Union[list[str], str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
