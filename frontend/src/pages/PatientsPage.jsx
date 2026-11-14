@@ -155,6 +155,7 @@ export default function PatientsPage() {
         onClose={() => setIsAddEditOpen(false)}
         patientToEdit={patientToEdit}
         onSave={handleSavePatient}
+        existingPatients={patients}
       />
 
       <PatientViewModal

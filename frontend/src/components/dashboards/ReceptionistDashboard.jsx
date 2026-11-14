@@ -282,6 +282,7 @@ export default function ReceptionistDashboard({
         onClose={() => setIsModalOpen(false)}
         patientToEdit={patientToEdit}
         onSave={handleSavePatient}
+        existingPatients={patients}
       />
 
       {/* View Patient Modal */}

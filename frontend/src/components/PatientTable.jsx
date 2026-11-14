@@ -51,6 +51,7 @@ export default function PatientTable({
       result = result.filter((p) => {
         const fullName = `${p.first_name || ''} ${p.middle_name || ''} ${p.last_name || ''}`.toLowerCase();
         const idMatch = String(p.id).includes(q);
+        const healthCardMatch = (p.health_card || '').toLowerCase().includes(q);
         const phoneMatch = (p.phone || '').toLowerCase().includes(q);
         const emailMatch = (p.email || '').toLowerCase().includes(q);
         const cityMatch = (p.city || '').toLowerCase().includes(q);
@@ -59,6 +60,7 @@ export default function PatientTable({
         return (
           idMatch ||
           fullName.includes(q) ||
+          healthCardMatch ||
           phoneMatch ||
           emailMatch ||
           cityMatch ||
@@ -130,7 +132,7 @@ export default function PatientTable({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by name, phone, email, city, or ID..."
+            placeholder="Search by name, health card, phone, email, city, or ID..."
             className="w-full pl-10 pr-9 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-sky-500 dark:focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/40 transition"
           />
           {searchQuery && (
@@ -207,10 +209,19 @@ export default function PatientTable({
                 </th>
                 <th
                   onClick={() => handleSort('dob')}
-                  className="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition min-w-[130px]"
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition min-w-[120px]"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>DOB / Age</span>
+                    <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                  </div>
+                </th>
+                <th
+                  onClick={() => handleSort('health_card')}
+                  className="py-3 px-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition min-w-[130px]"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Health Card</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                   </div>
                 </th>
@@ -267,6 +278,13 @@ export default function PatientTable({
                           {age}
                         </span>
                       )}
+                    </td>
+
+                    {/* Health Card / Insurance */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                        {patient.health_card || '—'}
+                      </span>
                     </td>
 
                     {/* Contact */}

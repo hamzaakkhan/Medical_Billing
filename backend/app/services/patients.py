@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session
 from app.models.patients import Patients
 
 
+from sqlalchemy.sql import func
+from app.models.appointments import appointments
+
+
 def all_patients_logic(db: Session):
     return db.query(Patients).all()
 
@@ -20,6 +24,11 @@ def get_patient_logic(id: int, db: Session):
 
 def add_patient_logic(patient_data, db: Session):
     data = patient_data.model_dump(exclude={"id"})
+    if patient_data.health_card:
+        clean_card = patient_data.health_card.strip().replace("-", "").replace(" ", "").upper()
+        pa = db.query(Patients).filter(func.upper(Patients.health_card) == clean_card).first()
+        if pa:
+            raise HTTPException(status_code=409, detail="Patient with this health card already exists")
     p = Patients(**data)
 
     try:
@@ -46,6 +55,18 @@ def update_patient_logic(id: int, patient_data, db: Session):
 
     updated_fields = patient_data.model_dump(exclude_unset=True)
     updated_fields.pop("id", None)
+    if patient_data.health_card:
+        clean_card = patient_data.health_card.strip().replace("-", "").replace(" ", "").upper()
+        pa = (
+            db.query(Patients)
+            .filter(
+                func.upper(Patients.health_card) == clean_card,
+                Patients.id != id,
+            )
+            .first()
+        )
+        if pa:
+            raise HTTPException(status_code=409, detail="Patient with this health card already exists")
 
     if not updated_fields:
         raise HTTPException(
@@ -75,6 +96,19 @@ def delete_patients_logic(id: int, db: Session):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No patient with this id",
+        )
+
+    # Medico-legal retention: prevent deleting patient with clinical history
+    has_appointments = (
+        db.query(appointments.id)
+        .filter(appointments.patient_id == id)
+        .first()
+        is not None
+    )
+    if has_appointments:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete patient: this patient has existing clinical appointment records. Patient records with clinical history cannot be deleted.",
         )
 
     try:

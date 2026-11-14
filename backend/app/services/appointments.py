@@ -1,12 +1,21 @@
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
+from sqlalchemy import text, update
 from sqlalchemy.orm import Session
 
-from app.models.appointments import appointments
+from app.database.database import SessionLocal
+from app.models.appointments import Appointment, appointments
 from app.models.patients import Patients
 from app.models.users import Roles, User
 from app.schema.appointments import appointmentCreate, appointmentUpdate
 from app.schema.users import role_name
+
+logger = logging.getLogger(__name__)
+
+# PostgreSQL advisory lock key (arbitrary 64-bit signed int) to prevent concurrent runs across workers
+NOSHOW_ADVISORY_LOCK_ID = 847291047
 
 INACTIVE_STATUSES = {"cancelled", "no_show"}
 
@@ -167,6 +176,14 @@ def add_appointment_logic(appointment_data: appointmentCreate, db: Session, user
             detail=f"Patient with id {appointment_data.patient_id} does not exist",
         )
 
+    now = datetime.now(timezone.utc)
+
+    if appointment_data.start_at < now:
+        raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Cannot schedule appointments in the past",
+    )
+
     _verify_doctor(db, appointment_data.doctor_id, for_update=True)
     _check_conflicts(
         db,
@@ -302,3 +319,56 @@ def delete_appointment_logic(id: int, db: Session, user_id=None):
         )
 
     return None
+
+# NO SHOW FUNCTIONALITY FOR APPOINTMENTS
+def change_to_noshow(db: Session | None = None, as_of: datetime | None = None) -> int:
+    
+    target_time = as_of if as_of is not None else datetime.now(timezone.utc)
+    if target_time.tzinfo is None:
+        target_time = target_time.replace(tzinfo=timezone.utc)
+
+    manage_session = db is None
+    session: Session = SessionLocal() if manage_session else db
+
+    try:
+        bind = session.get_bind() if hasattr(session, "get_bind") else session.bind
+        # If running on PostgreSQL with multiple workers, acquire advisory transaction lock
+        if bind and bind.dialect.name == "postgresql":
+            lock_acquired = session.execute(
+                text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
+                {"lock_id": NOSHOW_ADVISORY_LOCK_ID},
+            ).scalar()
+            if not lock_acquired:
+                logger.info("change_to_noshow: another worker is executing this job; skipping.")
+                return 0
+
+        up = (
+            update(Appointment)
+            .where(
+                Appointment.ends_at < target_time,
+                Appointment.status.in_(["scheduled", "confirmed"]),
+            )
+            .values(status="no_show")
+            .execution_options(synchronize_session=False)
+        )
+
+        result = session.execute(up)
+        count = (
+            result.rowcount
+            if hasattr(result, "rowcount") and result.rowcount is not None
+            else 0
+        )
+        session.commit()
+        if count > 0:
+            logger.info(
+                f"Marked {count} missed appointment(s) as no_show as of {target_time.isoformat()}"
+            )
+        return count
+    except Exception as exc:
+        session.rollback()
+        logger.exception(f"Error during change_to_noshow execution: {exc}")
+        raise
+    finally:
+        if manage_session:
+            session.close()
+

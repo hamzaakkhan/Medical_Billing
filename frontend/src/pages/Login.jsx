@@ -11,7 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { user, token, loading: authLoading, login } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -19,15 +19,33 @@ export default function Login() {
     document.title = 'Sign In | BillMD';
   }, []);
 
+  // Redirect to dashboard immediately if already authenticated
+  useEffect(() => {
+    const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+    if (!authLoading && effectiveToken && user) {
+      navigate('/', { replace: true });
+    }
+  }, [token, user, authLoading, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password. Please try again.');
+      console.error("Login submission error:", err);
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError(detail.map((d) => d.msg || String(d)).join(', '));
+      } else if (err.message && !err.response) {
+        setError(err.message);
+      } else {
+        setError('Invalid email or password. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

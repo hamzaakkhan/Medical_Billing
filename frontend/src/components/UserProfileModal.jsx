@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS } from '../utils/permissions';
 import { formatFullName, getInitials, normalizeName } from '../utils/nameFormat';
 import { getStoredAvatar, saveStoredAvatar } from '../utils/avatarStorage';
+import { getPasswordStrength } from '../utils/passwordStrength';
 
 const ROLE_DESCRIPTIONS = {
   admin: 'Full system oversight, staff administration, practice configurations, and reporting.',
@@ -336,16 +337,8 @@ export default function UserProfileModal({ isOpen, onClose }) {
   };
 
   // Password strength calculation
-  const getPasswordStrength = (pwd) => {
-    if (!pwd) return 0;
-    let score = 0;
-    if (pwd.length >= 8) score += 1;
-    if (/[A-Z]/.test(pwd)) score += 1;
-    if (/[0-9]/.test(pwd)) score += 1;
-    if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
-    return score;
-  };
-  const pwdScore = getPasswordStrength(passwordData.new_password);
+  const pwdStrength = getPasswordStrength(passwordData.new_password);
+  const pwdScore = pwdStrength.score;
 
   const modalContent = (
     <div
@@ -858,27 +851,48 @@ export default function UserProfileModal({ isOpen, onClose }) {
                   </button>
                 </div>
                 {passwordData.new_password && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       {[1, 2, 3, 4].map((step) => (
                         <div
                           key={step}
-                          className={`h-1.5 flex-1 rounded-full transition-colors ${
+                          className={`h-1.5 flex-1 rounded-full transition-all duration-200 ${
                             pwdScore >= step
-                              ? step <= 2
+                              ? pwdScore === 1
+                                ? 'bg-red-500'
+                                : pwdScore === 2
                                 ? 'bg-amber-400'
+                                : pwdScore === 3
+                                ? 'bg-blue-500'
                                 : 'bg-emerald-500'
-                              : 'bg-slate-200 dark:bg-slate-700'
+                              : 'bg-slate-200 dark:bg-slate-700/60'
                           }`}
                         />
                       ))}
                     </div>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                      Strength:{' '}
-                      <span className="font-semibold text-slate-600 dark:text-slate-300">
-                        {pwdScore <= 1 ? 'Weak' : pwdScore === 2 ? 'Fair' : pwdScore === 3 ? 'Good' : 'Strong'}
+                    <div className="flex items-center justify-between text-[11px] leading-tight">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Strength:{' '}
+                        <span
+                          className={`font-semibold ${
+                            pwdScore <= 1
+                              ? 'text-red-500 dark:text-red-400'
+                              : pwdScore === 2
+                              ? 'text-amber-500 dark:text-amber-400'
+                              : pwdScore === 3
+                              ? 'text-blue-500 dark:text-blue-400'
+                              : 'text-emerald-500 dark:text-emerald-400'
+                          }`}
+                        >
+                          {pwdStrength.label}
+                        </span>
                       </span>
-                    </p>
+                      {pwdStrength.feedback && (
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[240px]">
+                          {pwdStrength.feedback}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 {passwordErrors.new_password && (

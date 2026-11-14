@@ -22,6 +22,30 @@ class patients(BaseModel):
 
     emergency_phone: str | None = Field(default=None, max_length=20)
     phone: str = Field(min_length=9, max_length=15)
+    health_card: str = Field(min_length=7, max_length=12)
+
+    @field_validator("dob")
+    @classmethod
+    def validate_dob(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("Date of birth cannot be in the future")
+        return v
+
+    @field_validator("health_card", mode="before")
+    @classmethod
+    def normalize_health_card(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v.replace("-", "").replace(" ", "").upper().strip()
+        return v
+
+    @field_validator("health_card")
+    @classmethod
+    def validate_health_card_alphanumeric(cls, v: str) -> str:
+        if not v.isalnum():
+            raise ValueError("Health card must contain only letters and numbers")
+        return v
 
     @field_validator("first_name", "last_name", mode="before")
     @classmethod
@@ -58,8 +82,33 @@ class patientUpdate(BaseModel):
 
     emergency_phone: str | None = Field(default=None, max_length=20)
     phone: str | None = Field(default=None, min_length=9, max_length=15)
+    health_card: str | None = Field(default=None, min_length=7, max_length=12)
 
     model_config = {"extra": "forbid"}
+
+    @field_validator("dob")
+    @classmethod
+    def validate_update_dob(cls, v: date | None) -> date | None:
+        if v is not None and v > date.today():
+            raise ValueError("Date of birth cannot be in the future")
+        return v
+
+    @field_validator("health_card", mode="before")
+    @classmethod
+    def normalize_update_health_card(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            cleaned = v.replace("-", "").replace(" ", "").upper().strip()
+            return cleaned if cleaned else None
+        return v
+
+    @field_validator("health_card")
+    @classmethod
+    def validate_update_health_card_alphanumeric(cls, v: str | None) -> str | None:
+        if v is not None and not v.isalnum():
+            raise ValueError("Health card must contain only letters and numbers")
+        return v
 
     @field_validator("first_name", "last_name", mode="before")
     @classmethod

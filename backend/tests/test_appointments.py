@@ -3,6 +3,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from app.models.appointments import Appointment
 from app.models.patients import Patients
 from app.models.users import User
 from app.schema.appointments import appointmentCreate, appointmentResponse, appointmentUpdate
@@ -10,6 +11,7 @@ from app.schema.auth import TokenData
 from app.services.appointments import (
     add_appointment_logic,
     all_appointments_logic,
+    change_to_noshow,
     delete_appointment_logic,
     get_appointment_logic,
     update_appointment_logic,
@@ -28,6 +30,7 @@ def sample_patient(db_session):
         postal_code="10001",
         email="john.doe@example.com",
         phone="+1234567890",
+        health_card="NY10001001",
     )
     db_session.add(p)
     db_session.commit()
@@ -421,6 +424,7 @@ def test_scheduling_conflicts(db_session, sample_patient, sample_doctor, sample_
         postal_code="10002",
         email="jane.smith@example.com",
         phone="+1987654321",
+        health_card="NY10002002",
     )
     db_session.add(patient2)
     db_session.commit()
@@ -616,4 +620,157 @@ def test_admin_appointment_view_only(db_session, sample_patient, sample_doctor, 
         delete_appointment_logic(appt.id, db_session, regular_admin.id)
     assert exc_delete.value.status_code == 403
     assert "Only receptionists can delete appointment records" in exc_delete.value.detail
+
+
+def test_change_to_noshow_marks_only_past_ended_scheduled_and_confirmed(
+    db_session, sample_patient, sample_doctor, sample_receptionist
+):
+    now = datetime.now(timezone.utc)
+
+    # 1. Past ended - scheduled -> should become no_show
+    appt_past_scheduled = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=2),
+        ends_at=now - timedelta(hours=1),
+        reason="Past Scheduled",
+        status="scheduled",
+    )
+    # 2. Past ended - confirmed -> should become no_show
+    appt_past_confirmed = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=3),
+        ends_at=now - timedelta(hours=2),
+        reason="Past Confirmed",
+        status="confirmed",
+    )
+    # 3. In-flight (start_at has passed, but ends_at is in the future) -> must NOT change
+    appt_in_flight = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(minutes=15),
+        ends_at=now + timedelta(minutes=15),
+        reason="Currently In Flight",
+        status="scheduled",
+    )
+    # 4. Future appointment -> must NOT change
+    appt_future = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now + timedelta(hours=1),
+        ends_at=now + timedelta(hours=2),
+        reason="Future Appt",
+        status="confirmed",
+    )
+    # 5. Completed past appointment -> must NOT change
+    appt_completed = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=4),
+        ends_at=now - timedelta(hours=3),
+        reason="Completed Appt",
+        status="completed",
+    )
+    # 6. Cancelled past appointment -> must NOT change
+    appt_cancelled = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=4),
+        ends_at=now - timedelta(hours=3),
+        reason="Cancelled Appt",
+        status="cancelled",
+    )
+    # 7. In-progress past appointment -> must NOT change
+    appt_in_progress = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=4),
+        ends_at=now - timedelta(hours=3),
+        reason="In Progress Appt",
+        status="in_progress",
+    )
+    # 8. Already no_show past appointment -> must NOT change
+    appt_no_show = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=4),
+        ends_at=now - timedelta(hours=3),
+        reason="Already No Show",
+        status="no_show",
+    )
+    # 9. Rescheduled past appointment -> must NOT change
+    appt_rescheduled = Appointment(
+        patient_id=sample_patient.id,
+        doctor_id=sample_doctor.id,
+        scheduled_by=sample_receptionist.id,
+        start_at=now - timedelta(hours=4),
+        ends_at=now - timedelta(hours=3),
+        reason="Rescheduled Appt",
+        status="rescheduled",
+    )
+
+    db_session.add_all([
+        appt_past_scheduled,
+        appt_past_confirmed,
+        appt_in_flight,
+        appt_future,
+        appt_completed,
+        appt_cancelled,
+        appt_in_progress,
+        appt_no_show,
+        appt_rescheduled,
+    ])
+    db_session.commit()
+
+    updated_count = change_to_noshow(db=db_session, as_of=now)
+    assert updated_count == 2
+
+    # Refresh all records from the database
+    db_session.refresh(appt_past_scheduled)
+    db_session.refresh(appt_past_confirmed)
+    db_session.refresh(appt_in_flight)
+    db_session.refresh(appt_future)
+    db_session.refresh(appt_completed)
+    db_session.refresh(appt_cancelled)
+    db_session.refresh(appt_in_progress)
+    db_session.refresh(appt_no_show)
+    db_session.refresh(appt_rescheduled)
+
+    assert appt_past_scheduled.status == "no_show"
+    assert appt_past_confirmed.status == "no_show"
+    assert appt_in_flight.status == "scheduled"
+    assert appt_future.status == "confirmed"
+    assert appt_completed.status == "completed"
+    assert appt_cancelled.status == "cancelled"
+    assert appt_in_progress.status == "in_progress"
+    assert appt_no_show.status == "no_show"
+    assert appt_rescheduled.status == "rescheduled"
+
+
+def test_change_to_noshow_noop_when_no_matching_appointments(db_session):
+    updated = change_to_noshow(db=db_session)
+    assert updated == 0
+
+
+@pytest.mark.anyio
+async def test_scheduler_lifespan_starts_and_stops():
+    from app.main import app, scheduler
+
+    assert not scheduler.running
+    async with app.router.lifespan_context(app):
+        assert scheduler.running
+        job = scheduler.get_job("change_to_noshow")
+        assert job is not None
+        assert job.name == "change_to_noshow" or job.id == "change_to_noshow"
+
+    assert not scheduler.running
 

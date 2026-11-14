@@ -17,4 +17,5 @@ class Patients(Base):
     email = Column(String, nullable=False)
     emergency_phone = Column(String, nullable=True)
     phone = Column(String, nullable=False)
+    health_card = Column(String, nullable=False, unique=True)
     #insurance = Column(Integer, ForeignKey(insurance.id), nullable=True)

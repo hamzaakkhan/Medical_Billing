@@ -13,11 +13,25 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 // Protected Route — requires login, optionally requires a specific set of roles
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, token } = useAuth();
-  if (!token) return <Navigate to="/login" replace />;
+  const { user, token, loading } = useAuth();
+  const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!effectiveToken) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
+
   return children;
 };
 

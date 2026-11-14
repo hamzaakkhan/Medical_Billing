@@ -133,6 +133,7 @@ def test_patients_schema_normalizes_names():
         postal_code="11375",
         email="mj@example.com",
         phone="1234567890",
+        health_card="NY11375001",
     )
     assert p.first_name == "Mary-Jane"
     assert p.middle_name == "Anne"

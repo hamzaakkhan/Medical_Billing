@@ -251,6 +251,7 @@ def test_cannot_delete_user_with_appointments_as_doctor(
         postal_code="90210",
         email="jane.doe@example.com",
         phone="+1987654321",
+        health_card="CA90210001",
     )
     db_session.add(patient)
     db_session.commit()
@@ -291,6 +292,7 @@ def test_cannot_delete_user_with_appointments_as_scheduler(
         postal_code="90210",
         email="bob.smith@example.com",
         phone="+1234567800",
+        health_card="CA90210002",
     )
     db_session.add(patient)
     db_session.commit()

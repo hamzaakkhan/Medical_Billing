@@ -127,6 +127,31 @@ export default function PatientViewModal({ isOpen, onClose, patient, onEdit }) {
             </div>
           </div>
 
+          {/* Section: Health Card & Insurance Identification */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">
+              <IdCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              Health Card & Insurance Identification
+            </h4>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-700/70 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Health Card / Member ID</p>
+                  <p className="font-mono font-bold text-base text-blue-700 dark:text-blue-400 mt-0.5 tracking-wider">
+                    {patient.health_card || 'None recorded'}
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/60 text-xs font-medium self-start sm:self-auto">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Coverage Unverified</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-200/60 dark:border-slate-700/60 pt-2.5">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Clinical/Billing Notice:</span> Capturing a health card or insurance ID records identification demographics only. Real-time patient eligibility and active benefit coverage verification must be performed through the payer eligibility portal or clearinghouse transaction prior to billing.
+              </p>
+            </div>
+          </div>
+
           {/* Section: Contact & Emergency */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-2">

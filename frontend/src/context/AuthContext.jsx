@@ -74,16 +74,20 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (token) {
+      const activeToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+      if (activeToken) {
         try {
-          const decoded = jwtDecode(token);
-          if (decoded.exp * 1000 < Date.now()) {
+          const decoded = jwtDecode(activeToken);
+          if (decoded.exp && decoded.exp * 1000 < Date.now()) {
             logout();
+            setLoading(false);
             return;
           }
-          const userProfile = await fetchUserProfile(token, decoded);
-          setUser(userProfile);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          axios.defaults.headers.common['Authorization'] = `Bearer ${activeToken}`;
+          if (!user) {
+            const userProfile = await fetchUserProfile(activeToken, decoded);
+            setUser(userProfile);
+          }
         } catch (error) {
           console.error("Auth initialization failed:", error);
           logout();
@@ -102,16 +106,18 @@ export const AuthProvider = ({ children }) => {
 
     const res = await axios.post(`${API_BASE_URL}/login/`, formData);
     const newToken = res.data.access_token;
-    
+
     setToken(newToken);
     localStorage.setItem('token', newToken);
     localStorage.setItem('userEmail', username.trim());
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    
+
     const decoded = jwtDecode(newToken);
     const userProfile = await fetchUserProfile(newToken, decoded, username.trim());
-    
+
     setUser(userProfile);
+    setLoading(false);
+    return userProfile;
   };
 
   const logout = () => {
