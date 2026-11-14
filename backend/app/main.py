@@ -49,7 +49,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-#CORS configuration for web clients
+# CORS configuration for web clients
 cors_origins = (
     [origin.strip() for origin in setting.CORS_ORIGINS.split(",")]
     if isinstance(setting.CORS_ORIGINS, str)
@@ -58,7 +58,7 @@ cors_origins = (
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=setting.CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
