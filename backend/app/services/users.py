@@ -80,7 +80,7 @@ def create_user_logic(user: users, db: Session, user_id):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="User with this email already exists",
+            detail="An unexpected error occurred",
         )
     except Exception:
         db.rollback()
