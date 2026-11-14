@@ -6,7 +6,7 @@ from app.config import setting
 
 
 engine = create_engine(
-    setting.DATABASE_URL,
+    setting.DATABASE_URL_POOLED,
     pool_pre_ping=True,
 )
 
