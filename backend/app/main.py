@@ -72,7 +72,7 @@ app.include_router(login)
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "ok"}
+    return {"status": "okk"}
 # uv run uvicorn app.main:app --reload
 # uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload {HOST FOR PHONE}
 # agy --dangerously-skip-permissions
