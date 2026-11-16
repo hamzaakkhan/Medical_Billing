@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, timezone
+
 import jwt
-from jwt.exceptions import PyJWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jwt.exceptions import PyJWTError
 from sqlalchemy.orm import Session
 
 from app.config import setting

@@ -134,7 +134,7 @@ def update_user_logic(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please enter the data",
         )
-    
+
 
     # Disallow tampering with is_root_admin flag
     us.pop("is_root_admin", None)

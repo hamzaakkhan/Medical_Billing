@@ -18,7 +18,6 @@ from app.services.users import (
     create_user_logic,
     delete_user_logic,
     get_current_user_profile_logic,
-    get_user_logic,
     get_users_logic,
     update_current_user_profile_logic,
     update_user_logic,
@@ -240,7 +239,7 @@ def test_root_admin_can_delete_user(db_session, root_admin, doctor_user):
 def test_cannot_delete_user_with_appointments_as_doctor(
     db_session, root_admin, doctor_user
 ):
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     patient = Patients(
         first_name="Jane",
         last_name="Doe",
@@ -281,7 +280,7 @@ def test_cannot_delete_user_with_appointments_as_doctor(
 def test_cannot_delete_user_with_appointments_as_scheduler(
     db_session, root_admin, regular_admin, doctor_user
 ):
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     patient = Patients(
         first_name="Bob",
         last_name="Smith",

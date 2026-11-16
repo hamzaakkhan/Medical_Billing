@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.auth.jwt_auth import get_current_user
 from app.database.database import get_db
 from app.schema.auth import TokenData
-from app.schema.patients import patientUpdate, patients
+from app.schema.patients import patients, patientUpdate
 from app.services.patients import (
     add_patient_logic,
     all_patients_logic,

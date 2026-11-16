@@ -1,9 +1,7 @@
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
 from app.config import setting
-
-
 
 engine = create_engine(
     setting.DATABASE_URL_POOLED,

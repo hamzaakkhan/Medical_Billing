@@ -1,11 +1,9 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-
-from app.models.patients import Patients
-
-
 from sqlalchemy.sql import func
+
 from app.models.appointments import appointments
+from app.models.patients import Patients
 
 
 def all_patients_logic(db: Session):

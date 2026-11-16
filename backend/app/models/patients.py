@@ -1,6 +1,7 @@
+from sqlalchemy import Column, Date, Integer, String
+
 from app.database.database import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Date, Boolean, DateTime
-from sqlalchemy.sql import func
+
 
 class Patients(Base):
     __tablename__ = "patients"

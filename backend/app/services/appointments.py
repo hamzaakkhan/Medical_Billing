@@ -322,7 +322,7 @@ def delete_appointment_logic(id: int, db: Session, user_id=None):
 
 # NO SHOW FUNCTIONALITY FOR APPOINTMENTS
 def change_to_noshow(db: Session | None = None, as_of: datetime | None = None) -> int:
-    
+
     target_time = as_of if as_of is not None else datetime.now(timezone.utc)
     if target_time.tzinfo is None:
         target_time = target_time.replace(tzinfo=timezone.utc)

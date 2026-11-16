@@ -1,10 +1,11 @@
 from datetime import date
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.patients import Patients
-from app.schema.patients import patientUpdate, patients
+from app.schema.patients import patients, patientUpdate
 from app.services.patients import (
     add_patient_logic,
     all_patients_logic,
@@ -261,9 +262,10 @@ def test_health_card_duplicate_on_update(db_session):
 
 
 def test_patient_cannot_be_deleted_with_appointments(db_session):
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     from app.models.appointments import appointments
-    from app.models.users import User, Roles
+    from app.models.users import Roles, User
 
     # Setup doctor & scheduler user
     doc_role = db_session.query(Roles).filter(Roles.role == "doctor").first()

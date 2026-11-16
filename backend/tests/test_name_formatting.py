@@ -1,9 +1,14 @@
 from datetime import date
+
 import pytest
 
-from app.schema.patients import patientUpdate, patients
+from app.schema.patients import patients, patientUpdate
 from app.schema.users import role_name, userProfileUpdate, users, usersUpdate
-from app.utils.name_formatting import format_full_name, get_name_initials, normalize_name
+from app.utils.name_formatting import (
+    format_full_name,
+    get_name_initials,
+    normalize_name,
+)
 
 
 @pytest.mark.parametrize(

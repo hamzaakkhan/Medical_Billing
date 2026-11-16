@@ -1,6 +1,18 @@
-from app.database.database import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Date, Boolean, DateTime, Index, CheckConstraint, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    text,
+)
 from sqlalchemy.sql import func
+
+from app.database.database import Base
+
 
 class Roles(Base):
     __tablename__ = "roles"

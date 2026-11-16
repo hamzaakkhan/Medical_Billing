@@ -1,8 +1,8 @@
 from datetime import timedelta
+
+import jwt
 import pytest
 from fastapi import HTTPException
-from fastapi.security import OAuth2PasswordRequestForm
-import jwt
 
 from app.auth.hash import DUMMY_HASH, hash_password, verify_password
 from app.auth.jwt_auth import (
@@ -11,7 +11,6 @@ from app.auth.jwt_auth import (
     create_access_token,
     get_current_user,
 )
-from app.schema.auth import TokenData
 from app.services.login import login_user_logic
 
 

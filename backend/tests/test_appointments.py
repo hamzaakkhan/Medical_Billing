@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -6,7 +7,10 @@ from pydantic import ValidationError
 from app.models.appointments import Appointment
 from app.models.patients import Patients
 from app.models.users import User
-from app.schema.appointments import appointmentCreate, appointmentResponse, appointmentUpdate
+from app.schema.appointments import (
+    appointmentCreate,
+    appointmentUpdate,
+)
 from app.schema.auth import TokenData
 from app.services.appointments import (
     add_appointment_logic,
@@ -260,11 +264,11 @@ def test_delete_appointment(db_session, sample_patient, sample_doctor, sample_re
 
 def test_appointment_route_handlers(db_session, sample_patient, sample_doctor, sample_receptionist):
     from app.routes.appointments import (
-        all_appointments,
-        get_appointment,
         add_appointment,
-        update_appointment,
+        all_appointments,
         delete_appointment,
+        get_appointment,
+        update_appointment,
     )
 
     user_token = TokenData(id=sample_receptionist.id)

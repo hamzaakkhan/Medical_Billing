@@ -2,11 +2,11 @@
 from app.schema.appointments import (
     appointmentCreate,
     appointmentResponse,
-    appointmentUpdate,
     appointments,
+    appointmentUpdate,
 )
 from app.schema.auth import Token, TokenData
-from app.schema.patients import patientUpdate, patients
+from app.schema.patients import patients, patientUpdate
 from app.schema.users import (
     passwordChangeRequest,
     userProfileResponse,

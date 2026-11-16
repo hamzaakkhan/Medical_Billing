@@ -1,4 +1,5 @@
 from datetime import date
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.utils.name_formatting import normalize_name

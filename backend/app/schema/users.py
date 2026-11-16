@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.utils.name_formatting import normalize_name

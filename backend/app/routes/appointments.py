@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.auth.jwt_auth import get_current_user
 from app.database.database import get_db
+from app.models.users import Roles, User
 from app.schema.appointments import (
     appointmentCreate,
     appointmentResponse,
     appointmentUpdate,
 )
 from app.schema.auth import TokenData
+from app.schema.users import role_name, userResponse
 from app.services.appointments import (
     add_appointment_logic,
     all_appointments_logic,
@@ -16,9 +18,6 @@ from app.services.appointments import (
     get_appointment_logic,
     update_appointment_logic,
 )
-
-from app.models.users import Roles, User
-from app.schema.users import role_name, userResponse
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 

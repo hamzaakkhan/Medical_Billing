@@ -1,7 +1,16 @@
-from app.database.database import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, CheckConstraint, Index
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
+from app.database.database import Base
 
 
 class appointments(Base):
