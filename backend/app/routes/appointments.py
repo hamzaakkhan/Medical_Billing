@@ -95,5 +95,5 @@ def delete_appointment(
     user_id: TokenData = Depends(get_current_user),
 ):
     """Cancel / remove an appointment record."""
-    delete_appointment_logic(id, db, user_id.id)
+    #delete_appointment_logic(id, db, user_id.id)
     return None
